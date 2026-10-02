@@ -1844,9 +1844,10 @@ async function salvarArquivo(fn,blob){
 function cardapioCarrinho(){
  if(!carAberto())return toast('Abra o carrinho primeiro.','bad');
  openModal('Cardápio de hoje para o Instagram',`<p class="muted small" style="margin:0 0 14px">Gera uma imagem com os produtos que estão no carrinho agora (os esgotados ficam de fora). Escolha o formato.</p>
+ <label class="f" style="margin-bottom:14px">Local da venda (aparece na imagem)<input type="text" id="cd-local" value="${esc(CFG().localCarrinho??'Av. Ernesto Souza Cruz, 642')}" placeholder="Endereço de onde o carrinho vai estar"></label>
  <div class="grid g2"><button class="btn pri" style="padding:16px" onclick="cardapioPNG('feed')">Post do feed<br><span class="small" style="font-weight:500">1080 x 1350</span></button><button class="btn pri" style="padding:16px" onclick="cardapioPNG('story')">Stories<br><span class="small" style="font-weight:500">1080 x 1920</span></button></div>`,`<button class="btn" onclick="closeModal()">Voltar</button>`)}
 async function cardapioPNG(fmt){
- const car=carAberto();if(!car)return;const res=carResumo(car);let L=res.rows.filter(x=>x.resta>0);if(!L.length)L=res.rows;if(!L.length)return toast('O carrinho está sem produtos.','bad');
+ const car=carAberto();if(!car)return;const elL=$('#cd-local');if(elL){const v=elL.value.trim();if(v!==(CFG().localCarrinho??'Av. Ernesto Souza Cruz, 642')||CFG().localCarrinho==null){S.config.localCarrinho=v;save()}}const local=CFG().localCarrinho??'Av. Ernesto Souza Cruz, 642';const res=carResumo(car);let L=res.rows.filter(x=>x.resta>0);if(!L.length)L=res.rows;if(!L.length)return toast('O carrinho está sem produtos.','bad');
  const c=CFG(),W=1080,H=fmt==='story'?1920:1350,FF='"Plus Jakarta Sans",system-ui,sans-serif',GOLD='#94733A',INK='#2A2229',MUT='#766C77',SOFT='#F4ECDD';
  try{await Promise.all(['500','700','800'].map(w=>document.fonts.load(`${w} 30px "Plus Jakarta Sans"`)))}catch(e){}
  const img=src=>new Promise(r=>{if(!src)return r(null);const im=new Image();im.onload=()=>r(im);im.onerror=()=>r(null);im.src=src});
@@ -1863,7 +1864,7 @@ async function cardapioPNG(fmt){
  const d=toDate(car.abertura.slice(0,10));const dia=SEMLONGO[d.getDay()];
  x.fillStyle=INK;x.textAlign='center';f(800,62);x.fillText(`${dia[0].toUpperCase()+dia.slice(1)}, ${d.getDate()} de ${MESES[d.getMonth()]}`,W/2,y);y+=34;
  x.strokeStyle=GOLD;x.lineWidth=2;x.beginPath();x.moveTo(W/2-60,y);x.lineTo(W/2+60,y);x.stroke();y+=40;
- const FOOT=fmt==='story'?330:170,top=y,areaH=H-FOOT-top,n=L.length,G=22;
+ const FOOT=(fmt==='story'?330:170)+(local?50:0),top=y,areaH=H-FOOT-top,n=L.length,G=22;
  let cols=n<=4?1:n<=12?2:3,rowsN=Math.ceil(n/cols);if(cols===1&&(areaH-G*(rowsN-1))/rowsN<150){cols=2;rowsN=Math.ceil(n/cols)}
  const cw=(W-2*M-G*(cols-1))/cols,ch=Math.min(cols===1?210:190,(areaH-G*(rowsN-1))/rowsN),y0=top+Math.max(0,(areaH-(ch*rowsN+G*(rowsN-1)))/2);
  const ph=Math.min(ch-24,cols===3?96:170),pad=Math.max(12,(ch-ph)/2),fn=Math.max(17,Math.min(cols===1?40:cols===2?28:22,ch*0.18)),fp=fn*1.12;
@@ -1878,7 +1879,8 @@ async function cardapioPNG(fmt){
   const tx=px+ph+pad*0.9,tw=bx+cw-pad-tx;x.textAlign='left';f(700,fn);const ls=wrap(p.nome,tw,ch>=150?3:2),lh=fn*1.2,bh=ls.length*lh+fp*1.25;let ty=by+(ch-bh)/2+fn*0.9;
   x.fillStyle=INK;ls.forEach(l=>{x.fillText(l,tx,ty);ty+=lh});x.fillStyle=GOLD;f(800,fp);x.fillText(brl(it.preco),tx,ty+fp*0.2)});
  const fy=H-FOOT+48;x.textAlign='center';x.fillStyle=INK;f(700,32);x.fillText('Passe aqui e garanta o seu',W/2,fy+10);
- const ct=[c.instagram,c.whatsapp?'WhatsApp '+c.whatsapp:''].filter(Boolean).join('   ·   ');if(ct){x.fillStyle=MUT;f(500,26);x.fillText(ct,W/2,fy+54)}
+ let fy2=fy;if(local){x.fillStyle=GOLD;f(800,32);x.fillText(wrap(local,W-2*M,1)[0],W/2,fy+58);fy2+=50}
+ const ct=[c.instagram,c.whatsapp?'WhatsApp '+c.whatsapp:''].filter(Boolean).join('   ·   ');if(ct){x.fillStyle=MUT;f(500,26);x.fillText(ct,W/2,fy2+54)}
  cv.toBlob(b=>{closeModal();salvarArquivo(`Carrinho-${car.abertura.slice(0,10)}-${fmt==='story'?'stories':'feed'}.png`,b)},'image/png');
 }
 function importar(txt){try{const o=JSON.parse(txt);if(!o||!o.insumos||!o.produtos||!o.config)throw 0;askConfirm('Substituir todos os dados atuais pelo backup?','Restaurar',()=>{S=o;save();closeModal();go('painel');toast('Backup restaurado')},'Voltar')}catch(e){toast('Esse texto não é um backup válido do sistema.','bad')}}
