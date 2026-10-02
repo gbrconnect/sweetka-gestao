@@ -873,7 +873,7 @@ R.carrinho=()=>{
  const r=carResumo(c);const tkQ=Object.values(TK.itens).reduce((s,q)=>s+q,0);
  const tkTot=Object.entries(TK.itens).reduce((s,[p,q])=>s+q*(r.rows.find(x=>x.p===p)||{}).preco,0);
  const troco=TK.forma==='Dinheiro'&&num(TK.recebido)>0?num(TK.recebido)-tkTot:null;
- return head('Carrinho aberto',`Aberto às ${c.abertura.slice(11,16)} de ${dBR(c.abertura.slice(0,10))}. Toque nos produtos para montar a venda.`,`<button class="btn" onclick="editarCarrinho('${c.id}')">${ico('edit')}Editar</button><button class="btn" onclick="reporCarrinho()">${ico('plus')}Repor produtos</button><button class="btn pri" onclick="fecharCarrinho()">Fechar carrinho</button>`)
+ return head('Carrinho aberto',`Aberto às ${c.abertura.slice(11,16)} de ${dBR(c.abertura.slice(0,10))}. Toque nos produtos para montar a venda.`,`<button class="btn" onclick="editarCarrinho('${c.id}')">${ico('edit')}Editar</button><button class="btn" onclick="reporCarrinho()">${ico('plus')}Repor produtos</button><button class="btn" onclick="cardapioCarrinho()">${ico('pdf')}Cardápio de hoje</button><button class="btn pri" onclick="fecharCarrinho()">Fechar carrinho</button>`)
  +`<div class="car-sum">
   <div><span>Vendido</span><b class="num">${brl(r.total)}</b></div>
   <div><span>Itens vendidos</span><b class="num">${nq(r.vend)} de ${nq(r.saiu)}</b></div>
@@ -1406,23 +1406,23 @@ function noCatalogo(p){return p.ativo!==false&&(p.catalogo??(p.cat!=='Adicionais
 function catToggle(id,v){getProd(id).catalogo=v;save();render()}
 function catGrupos(){const vis=S.produtos.filter(noCatalogo);return[...new Set(vis.map(p=>p.cat))].map(c=>[c,vis.filter(p=>p.cat===c)])}
 function catalogoView(){
- const ativos=S.produtos.filter(p=>p.ativo!==false);const fora=ativos.filter(p=>!noCatalogo(p));const g=catGrupos();const semFoto=g.reduce((s,[,ps])=>s+ps.filter(p=>!p.foto).length,0);const cento=UI.catCento!==false;
+ const ativos=S.produtos.filter(p=>p.ativo!==false);const fora=ativos.filter(p=>!noCatalogo(p));const g=catGrupos();const semFoto=g.reduce((s,[,ps])=>s+ps.filter(p=>!p.foto).length,0);
  return head('Produtos e preços','Catálogo com a sua marca para enviar à cliente. Escolha o que aparece, baixe em PDF ou copie a lista para o WhatsApp.',`<button class="btn" onclick="copiarTexto(textoCatalogo())">${ico('copy')}Copiar lista</button><button class="btn pri" onclick="catalogoPDF()">${ico('pdf')}Baixar catálogo em PDF</button>`)
  +prodTabs()
- +`<div class="toolbar"><label class="chk"><input type="checkbox" id="cat-cento" ${cento?'checked':''} onchange="UI.catCento=this.checked;render()"> Mostrar também o preço do cento</label>${semFoto?`<span class="small muted">${semFoto} produto${semFoto>1?'s':''} sem foto. Toque em "Adicionar foto" para deixar o catálogo mais bonito.</span>`:''}</div>
+ +`<div class="toolbar">${semFoto?`<span class="small muted">${semFoto} produto${semFoto>1?'s':''} sem foto. Toque em "Adicionar foto" para deixar o catálogo mais bonito.</span>`:''}</div>
  ${g.map(([c,ps])=>`<div class="cat-t">${esc(c)}</div><div class="cat-grid">${ps.map(p=>`<div class="cat-c">
   <div class="cat-f">${p.foto?`<img src="${p.foto}" alt="${esc(p.nome)}">`:`<span class="l">${esc((p.nome[0]||'?').toUpperCase())}</span><button class="btn sm" onclick="abrirProduto('${p.id}')">Adicionar foto</button>`}</div>
-  <div class="cat-b"><b>${esc(p.nome)}</b>${p.desc?`<span class="d">${esc(p.desc)}</span>`:''}<div class="cat-p num">${brl(p.preco)}</div>${cento&&p.contaCap?`<span class="d num">Cento: ${brl(p.preco*100)}</span>`:''}</div>
+  <div class="cat-b"><b>${esc(p.nome)}</b>${p.desc?`<span class="d">${esc(p.desc)}</span>`:''}<div class="cat-p num">${brl(p.preco)}</div></div>
   <div class="cat-a"><button class="btn sm ghost" onclick="abrirProduto('${p.id}')">Editar</button><button class="btn sm ghost" onclick="catToggle('${p.id}',false)">Ocultar</button></div></div>`).join('')}</div>`).join('')||'<div class="empty">Nenhum produto no catálogo.</div>'}
  ${fora.length?`<div class="card" style="margin-top:20px"><h3>Fora do catálogo</h3>${fora.map(p=>`<div class="alert" style="align-items:center"><span class="nm" style="flex:1">${avatar(p,'sm')}<span>${esc(p.nome)}</span></span><button class="btn sm" onclick="catToggle('${p.id}',true)">Incluir</button></div>`).join('')}</div>`:''}`;
 }
-function textoCatalogo(){const c=CFG();const cento=UI.catCento!==false;
- return`*Catálogo ${c.marca||c.empresa}*\n\n`+catGrupos().map(([cat,ps])=>`*${cat}*\n`+ps.map(p=>`• ${p.nome}: ${brl(p.preco)}${cento&&p.contaCap?` (cento ${brl(p.preco*100)})`:''}`).join('\n')).join('\n\n')+`\n\nEncomendas pelo WhatsApp${c.whatsapp?' '+c.whatsapp:''}\n${c.instagram||''}`}
+function textoCatalogo(){const c=CFG();
+ return`*Catálogo ${c.marca||c.empresa}*\n\n`+catGrupos().map(([cat,ps])=>`*${cat}*\n`+ps.map(p=>`• ${p.nome}: ${brl(p.preco)}`).join('\n')).join('\n\n')+`\n\nEncomendas pelo WhatsApp${c.whatsapp?' '+c.whatsapp:''}\n${c.instagram||''}`}
 function fotoArredondada(src,size=360){return new Promise(res=>{const im=new Image();im.onload=()=>{const cv=document.createElement('canvas');cv.width=cv.height=size;const x=cv.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,size,size);const r=size*0.16;x.beginPath();x.moveTo(r,0);x.arcTo(size,0,size,size,r);x.arcTo(size,size,0,size,r);x.arcTo(0,size,0,0,r);x.arcTo(0,0,size,0,r);x.closePath();x.clip();const m=Math.min(im.width,im.height);x.drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,0,0,size,size);res(cv.toDataURL('image/jpeg',0.88))};im.onerror=()=>res(null);im.src=src})}
 async function catalogoPDF(){
  if(!window.jspdf||!window.jspdf.jsPDF)return toast('O gerador de PDF não carregou. Verifique a internet e tente de novo.','bad');
  const g=catGrupos();if(!g.length)return toast('Inclua pelo menos um produto no catálogo.','bad');
- const c=CFG();const cento=UI.catCento!==false;const fotos={};
+ const c=CFG();const fotos={};
  await Promise.all(g.flatMap(([,ps])=>ps).filter(p=>p.foto).map(async p=>{fotos[p.id]=await fotoArredondada(p.foto)}));
  const doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'});const W=210,M=16,R=W-M,FOOT=274,GAP=8,CW=(R-M-GAP)/2,CH=31,FT=26;
  const tc=a=>doc.setTextColor(a[0],a[1],a[2]),fc=a=>doc.setFillColor(a[0],a[1],a[2]),dc=a=>doc.setDrawColor(a[0],a[1],a[2]);
@@ -1446,8 +1446,7 @@ async function catalogoPDF(){
     else{fc(PC.goldSoft);doc.roundedRect(x,y,FT,FT,4,4,'F');font('bold',22,PC.gold);doc.text((p.nome[0]||'?').toUpperCase(),x+FT/2,y+FT/2+3.8,{align:'center'})}
     const tx=x+FT+5,tw=CW-FT-5;font('bold',10.5,PC.ink);const nl=doc.splitTextToSize(p.nome,tw).slice(0,2);doc.text(nl,tx,y+4.5);let yy=y+4.5+nl.length*4.5;
     if(p.desc){font('normal',8.3,PC.muted);const dl=doc.splitTextToSize(p.desc,tw).slice(0,2);doc.text(dl,tx,yy);}
-    font('bold',12.5,PC.gold);const pr=brl(p.preco);doc.text(pr,tx,y+FT-1.5);
-    if(cento&&p.contaCap){const pw=doc.getTextWidth(pr);font('normal',8.3,PC.muted);doc.text(`cento ${brl(p.preco*100)}`,tx+pw+3,y+FT-1.5)}});
+    font('bold',12.5,PC.gold);const pr=brl(p.preco);doc.text(pr,tx,y+FT-1.5)});
    y+=CH}
   y+=6}
  const np=doc.getNumberOfPages();
@@ -1469,9 +1468,9 @@ R.produtos=()=>{
  +prodTabs()+`${abaixo?`<div class="card" style="margin-bottom:14px;border-color:var(--bad)"><b class="down">${abaixo} produto${abaixo>1?'s':''} abaixo da margem mínima de ${CFG().margemMin}%.</b> <span class="muted">Clique no produto para ver a composição do custo e usar o preço sugerido.</span></div>`:''}
  <div class="toolbar"><input type="search" class="search" id="prod-busca" placeholder="Buscar produto" value="${esc(UI.prodBusca)}" oninput="UI.prodBusca=this.value;rerenderKeep('prod-busca')">
  <div class="chips">${cats.map(c=>`<button class="chip ${UI.prodCat===c?'on':''}" onclick="UI.prodCat='${c}';render()">${esc(c)}</button>`).join('')}</div></div>
- <div class="tbl-wrap"><table><thead><tr><th>Produto</th><th class="r">Materiais</th><th class="r">Mão de obra</th><th class="r">Custo total</th><th class="r">Preço</th><th class="r">Margem</th><th class="r">Sugerido</th><th class="r">Cento</th></tr></thead><tbody>
+ <div class="tbl-wrap"><table><thead><tr><th>Produto</th><th class="r">Materiais</th><th class="r">Mão de obra</th><th class="r">Custo total</th><th class="r">Preço</th><th class="r">Margem</th><th class="r">Sugerido</th></tr></thead><tbody>
  ${rows.map(({p,c,m,sug})=>`<tr class="click" onclick="abrirProduto('${p.id}')"><td><div class="nm">${avatar(p)}<div><b>${esc(p.nome)}</b>${p.ativo===false?' <span class="small muted">(inativo)</span>':''}<br><span class="small muted">${esc(p.cat)}${p.modoCusto==='manual'?' · custo manual':''}</span></div></div></td>
- <td class="r">${brl(c.mat+c.ind)}</td><td class="r">${brl(c.mo)}</td><td class="r"><b>${brl(c.total)}</b></td><td class="r">${brl(p.preco)}</td><td class="r">${mgChip(m)}</td><td class="r">${brl(sug)}</td><td class="r">${p.contaCap?brl(p.preco*100):'<span class="muted">·</span>'}</td></tr>`).join('')}
+ <td class="r">${brl(c.mat+c.ind)}</td><td class="r">${brl(c.mo)}</td><td class="r"><b>${brl(c.total)}</b></td><td class="r">${brl(p.preco)}</td><td class="r">${mgChip(m)}</td><td class="r">${brl(sug)}</td></tr>`).join('')}
  </tbody></table></div>
  <div class="card" style="margin-top:18px"><h3>Simulador de reajuste de insumo</h3>
   <p class="muted small" style="margin:-4px 0 12px">Veja o que acontece com as margens se um insumo subir de preço, antes de o aumento chegar.</p>
@@ -1830,15 +1829,58 @@ function gerarPDF(kind,id){
  salvarArquivo(fn,doc.output('blob'));
 }
 async function salvarArquivo(fn,blob){
+ const img=/\.png$/i.test(fn),N=img?'Imagem':'PDF',ok=img?'Imagem salva. Agora é só postar no Instagram.':'PDF salvo. Agora é só anexar no WhatsApp da cliente.';
  if(window.claude&&typeof window.claude.use==='function'){
-  toast('Preparando o PDF...');
+  toast(img?'Preparando a imagem...':'Preparando o PDF...');
   let dl=null;try{dl=await window.claude.use('downloads')}catch(e){}
   if(!dl)return toast('Esta visualização não permite salvar arquivos. Abra o sistema pelo link no navegador ou no app do Claude.','bad');
-  try{const r=await dl.save({filename:fn,data:blob});if(r&&r.status==='saved')toast('PDF salvo. Agora é só anexar no WhatsApp da cliente.')}
-  catch(e){if(e&&e.code==='declined')return;if(e&&e.code==='rate_limited')return toast('Já existe um arquivo aguardando confirmação.','bad');toast('Não foi possível salvar o PDF aqui.','bad')}
+  try{const r=await dl.save({filename:fn,data:blob});if(r&&r.status==='saved')toast(ok)}
+  catch(e){if(e&&e.code==='declined')return;if(e&&e.code==='rate_limited')return toast('Já existe um arquivo aguardando confirmação.','bad');toast('Não foi possível salvar o arquivo aqui.','bad')}
   return}
- try{const f=new File([blob],fn,{type:'application/pdf'});if(matchMedia('(pointer:coarse)').matches&&navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:fn});return}}catch(e){if(e&&e.name==='AbortError')return}
- const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast('PDF baixado. Agora é só anexar no WhatsApp da cliente.');
+ try{const f=new File([blob],fn,{type:img?'image/png':'application/pdf'});if(matchMedia('(pointer:coarse)').matches&&navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:fn});return}}catch(e){if(e&&e.name==='AbortError')return}
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast(ok.replace('salv','baixad'));
+}
+/* ===== Cardápio do carrinho em imagem (Instagram) ===== */
+function cardapioCarrinho(){
+ if(!carAberto())return toast('Abra o carrinho primeiro.','bad');
+ openModal(`<h2>Cardápio de hoje para o Instagram</h2><p class="muted small" style="margin:-4px 0 14px">Gera uma imagem com os produtos que estão no carrinho agora (os esgotados ficam de fora). Escolha o formato.</p>
+ <div class="grid g2"><button class="btn pri" style="padding:16px" onclick="cardapioPNG('feed')">Post do feed<br><span class="small" style="font-weight:500">1080 x 1350</span></button><button class="btn pri" style="padding:16px" onclick="cardapioPNG('story')">Stories<br><span class="small" style="font-weight:500">1080 x 1920</span></button></div>
+ <div class="modal-foot"><button class="btn" onclick="closeModal()">Voltar</button></div>`)}
+async function cardapioPNG(fmt){
+ const car=carAberto();if(!car)return;const res=carResumo(car);let L=res.rows.filter(x=>x.resta>0);if(!L.length)L=res.rows;if(!L.length)return toast('O carrinho está sem produtos.','bad');
+ const c=CFG(),W=1080,H=fmt==='story'?1920:1350,FF='"Plus Jakarta Sans",system-ui,sans-serif',GOLD='#94733A',INK='#2A2229',MUT='#766C77',SOFT='#F4ECDD';
+ try{await Promise.all(['500','700','800'].map(w=>document.fonts.load(`${w} 30px "Plus Jakarta Sans"`)))}catch(e){}
+ const img=src=>new Promise(r=>{if(!src)return r(null);const im=new Image();im.onload=()=>r(im);im.onerror=()=>r(null);im.src=src});
+ const[logo,...fotos]=await Promise.all([img(c.logo),...L.map(x=>img((getProd(x.p)||{}).foto))]);
+ const cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');
+ const f=(w,sz)=>x.font=`${w} ${sz}px ${FF}`;
+ const sp=(t,cx,y,ls)=>{t=t.toUpperCase();const ws=[...t].map(ch=>x.measureText(ch).width);let xx=cx-(ws.reduce((a,b)=>a+b,0)+ls*(t.length-1))/2;x.textAlign='left';[...t].forEach((ch,i)=>{x.fillText(ch,xx,y);xx+=ws[i]+ls})};
+ const wrap=(t,mw,ml)=>{const out=[];let l='';for(const w of String(t).split(/\s+/)){const n=l?l+' '+w:w;if(x.measureText(n).width<=mw||!l)l=n;else{out.push(l);l=w}}if(l)out.push(l);if(out.length>ml){out.length=ml;let z=out[ml-1];while(z&&x.measureText(z+'…').width>mw)z=z.slice(0,-1);out[ml-1]=z+'…'}return out};
+ x.fillStyle='#FBF7F0';x.fillRect(0,0,W,H);x.fillStyle=GOLD;x.fillRect(0,0,W,14);x.fillRect(0,H-14,W,14);
+ const M=64;let y=fmt==='story'?210:70;
+ if(logo){let h=150,w=h*logo.width/logo.height;if(w>520){w=520;h=w*logo.height/logo.width}x.drawImage(logo,(W-w)/2,y,w,h);y+=h+44}
+ else{x.fillStyle=GOLD;x.textAlign='center';f(800,84);x.fillText(c.marca||c.empresa||'Sweet Ka',W/2,y+78);y+=100;const sub=c.marcaSub??'CONFEITARIA';if(sub){f(700,24);sp(sub,W/2,y+22,7);y+=30}y+=44}
+ x.fillStyle=GOLD;f(700,28);sp('Carrinho de hoje',W/2,y,8);y+=66;
+ const d=toDate(car.abertura.slice(0,10));const dia=SEMLONGO[d.getDay()];
+ x.fillStyle=INK;x.textAlign='center';f(800,62);x.fillText(`${dia[0].toUpperCase()+dia.slice(1)}, ${d.getDate()} de ${MESES[d.getMonth()]}`,W/2,y);y+=34;
+ x.strokeStyle=GOLD;x.lineWidth=2;x.beginPath();x.moveTo(W/2-60,y);x.lineTo(W/2+60,y);x.stroke();y+=40;
+ const FOOT=fmt==='story'?330:170,top=y,areaH=H-FOOT-top,n=L.length,G=22;
+ let cols=n<=4?1:n<=12?2:3,rowsN=Math.ceil(n/cols);if(cols===1&&(areaH-G*(rowsN-1))/rowsN<150){cols=2;rowsN=Math.ceil(n/cols)}
+ const cw=(W-2*M-G*(cols-1))/cols,ch=Math.min(cols===1?210:190,(areaH-G*(rowsN-1))/rowsN),y0=top+Math.max(0,(areaH-(ch*rowsN+G*(rowsN-1)))/2);
+ const ph=Math.min(ch-24,cols===3?96:170),pad=Math.max(12,(ch-ph)/2),fn=Math.max(17,Math.min(cols===1?40:cols===2?28:22,ch*0.18)),fp=fn*1.12;
+ const rr=(a,b,w,h,r)=>{x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath()};
+ L.forEach((it,i)=>{const p=getProd(it.p)||{nome:'?'};const lastRow=Math.floor(i/cols)===rowsN-1,inRow=lastRow?n-cols*(rowsN-1):cols;
+  const bx=M+(i%cols)*(cw+G)+(lastRow?(cols-inRow)*(cw+G)/2:0),by=y0+Math.floor(i/cols)*(ch+G);
+  x.fillStyle='#FFFFFF';x.shadowColor='rgba(60,40,10,.10)';x.shadowBlur=18;x.shadowOffsetY=4;rr(bx,by,cw,ch,26);x.fill();x.shadowColor='transparent';x.shadowBlur=0;x.shadowOffsetY=0;
+  const px=bx+pad,py=by+(ch-ph)/2,im=fotos[i];x.save();x.beginPath();x.arc(px+ph/2,py+ph/2,ph/2,0,Math.PI*2);x.closePath();
+  if(im){x.clip();const m=Math.min(im.width,im.height);x.drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,px,py,ph,ph)}
+  else{x.fillStyle=SOFT;x.fill();x.fillStyle=GOLD;x.textAlign='center';f(800,ph*0.42);x.fillText((p.nome.trim()[0]||'?').toUpperCase(),px+ph/2,py+ph/2+ph*0.15)}
+  x.restore();
+  const tx=px+ph+pad*0.9,tw=bx+cw-pad-tx;x.textAlign='left';f(700,fn);const ls=wrap(p.nome,tw,ch>=150?3:2),lh=fn*1.2,bh=ls.length*lh+fp*1.25;let ty=by+(ch-bh)/2+fn*0.9;
+  x.fillStyle=INK;ls.forEach(l=>{x.fillText(l,tx,ty);ty+=lh});x.fillStyle=GOLD;f(800,fp);x.fillText(brl(it.preco),tx,ty+fp*0.2)});
+ const fy=H-FOOT+48;x.textAlign='center';x.fillStyle=INK;f(700,32);x.fillText('Passe aqui e garanta o seu',W/2,fy+10);
+ const ct=[c.instagram,c.whatsapp?'WhatsApp '+c.whatsapp:''].filter(Boolean).join('   ·   ');if(ct){x.fillStyle=MUT;f(500,26);x.fillText(ct,W/2,fy+54)}
+ cv.toBlob(b=>{closeModal();salvarArquivo(`Carrinho-${car.abertura.slice(0,10)}-${fmt==='story'?'stories':'feed'}.png`,b)},'image/png');
 }
 function importar(txt){try{const o=JSON.parse(txt);if(!o||!o.insumos||!o.produtos||!o.config)throw 0;askConfirm('Substituir todos os dados atuais pelo backup?','Restaurar',()=>{S=o;save();closeModal();go('painel');toast('Backup restaurado')},'Voltar')}catch(e){toast('Esse texto não é um backup válido do sistema.','bad')}}
 function lerArquivo(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>importar(r.result);r.readAsText(f)}
