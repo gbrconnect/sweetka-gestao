@@ -876,7 +876,7 @@ R.carrinho=()=>{
   ${res.map(({c,r})=>`<tr class="click" onclick="verCarrinho('${c.id}')"><td><b>${SEMLONGO[toDate(c.abertura.slice(0,10)).getDay()]}, ${dCurto(c.abertura.slice(0,10))}</b><br><span class="small muted">${c.abertura.slice(11,16)} às ${(c.fechamento||'').slice(11,16)}</span></td><td class="r">${c.fechamento?duracao(c.abertura,c.fechamento):''}</td><td class="r">${nq(r.vend)} de ${nq(r.saiu)}</td><td class="r">${pct(r.saiu?r.vend/r.saiu:0)}</td><td class="r"><b>${brl(r.total)}</b></td><td class="r">${brl(r.lucro)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nenhum carrinho fechado ainda.</div>'}</div>`;
  }
  const r=carResumo(c);const tkQ=Object.values(TK.itens).reduce((s,q)=>s+q,0);
- const tkTot=Object.entries(TK.itens).reduce((s,[p,q])=>s+q*(r.rows.find(x=>x.p===p)||{}).preco,0);
+ const tkSub=Object.entries(TK.itens).reduce((s,[p,q])=>s+q*(r.rows.find(x=>x.p===p)||{}).preco,0);const tkD=tkDesc(tkSub),tkTot=+(tkSub-tkD).toFixed(2);
  const troco=TK.forma==='Dinheiro'&&num(TK.recebido)>0?num(TK.recebido)-tkTot:null;
  return head('Carrinho aberto',`Aberto às ${c.abertura.slice(11,16)} de ${dBR(c.abertura.slice(0,10))}. Toque nos produtos para montar a venda.`,`<button class="btn" onclick="editarCarrinho('${c.id}')">${ico('edit')}Editar</button><button class="btn" onclick="reporCarrinho()">${ico('plus')}Repor produtos</button><button class="btn" onclick="cardapioCarrinho()">${ico('pdf')}Cardápio de hoje</button><button class="btn pri" onclick="fecharCarrinho()">Fechar carrinho</button>`)
  +`<div class="car-sum">
@@ -890,19 +890,23 @@ R.carrinho=()=>{
   <div class="tk card">
    <h3>Venda atual ${tkQ?`<button class="btn sm ghost" onclick="TK.itens={};TK.recebido='';render()">Limpar</button>`:''}</h3>
    ${tkQ?`<div class="tk-l">${Object.entries(TK.itens).map(([p,q])=>{const row=r.rows.find(x=>x.p===p);return`<div class="tk-i"><span class="nm">${avatar(getProd(p),'sm')}<span>${esc((getProd(p)||{}).nome)}</span></span><span class="tk-c"><button class="x" onclick="tkAdd('${p}',-1)" aria-label="Menos um">−</button><b class="num">${q}</b><button class="x" onclick="tkAdd('${p}',1)" aria-label="Mais um">+</button></span><span class="num">${brl(q*row.preco)}</span></div>`}).join('')}</div>`:'<div class="muted small">Toque em um produto para adicionar.</div>'}
+   ${tkQ?`<div class="frow" style="margin-top:10px;align-items:end"><label class="f">Desconto<input type="text" inputmode="decimal" id="tk-desc" placeholder="0" value="${esc(TK.desc||'')}" oninput="TK.desc=this.value;rerenderKeep('tk-desc')"></label><div class="chips" style="padding-bottom:4px">${['R$','%'].map(t=>`<button class="chip ${(TK.descTipo||'R$')===t?'on':''}" onclick="TK.descTipo='${t}';render()">${t}</button>`).join('')}</div></div>${tkD>0?`<div class="small muted" style="display:flex;justify-content:space-between;margin-top:8px"><span>Subtotal ${brl(tkSub)}</span><span>Desconto −${brl(tkD)}</span></div>`:''}`:''}
    <div class="tk-tot"><span>Total${tkQ?` <span class="small muted">(${tkQ} ${tkQ>1?'itens':'item'})</span>`:''}</span><b class="num">${brl(tkTot)}</b></div>
    <div class="chips" style="margin:10px 0">${FORMAS_CAR.map(f=>`<button class="chip ${TK.forma===f?'on':''}" onclick="TK.forma='${f}';render()">${f}</button>`).join('')}</div>
    ${TK.forma==='Dinheiro'?`<div class="frow" style="margin-bottom:10px"><label class="f">Recebido (R$)<input type="text" inputmode="decimal" id="tk-rec" value="${esc(TK.recebido)}" oninput="TK.recebido=this.value;const t=num(this.value)-${tkTot};$('#tk-troco').textContent=num(this.value)>0?brl(t):'-'"></label><div class="f"><span class="small strong muted">Troco</span><b class="num" id="tk-troco" style="font-size:18px">${troco!=null?brl(troco):'-'}</b></div></div>`:''}
    <button class="btn pri" style="width:100%;padding:12px" onclick="registrarVenda()" ${tkQ?'':'disabled'}>Registrar venda${tkQ?` · ${brl(tkTot)}`:''}</button>
   </div>
  </div>
- <div class="card" style="margin-top:16px"><h3>Vendas desta noite</h3>${c.vendas.length?[...c.vendas].reverse().map(v=>`<div class="alert"><span class="num muted" style="width:44px">${v.hora}</span><div style="flex:1;min-width:0">${v.itens.map(x=>`${x.q} ${esc((getProd(x.p)||{}).nome)}`).join(', ')}<br><span class="small muted">${v.forma}</span></div><b class="num">${brl(v.total)}</b><button class="x" title="Editar venda" aria-label="Editar venda" onclick="editarVenda('${c.id}','${v.id}')">${ico('edit','width="16" height="16"')}</button><button class="x" title="Desfazer venda" aria-label="Desfazer venda" onclick="desfazerVenda('${v.id}')">${ico('x','width="16" height="16"')}</button></div>`).join(''):'<div class="muted small">Nenhuma venda ainda.</div>'}</div>`;
+ <div class="card" style="margin-top:16px"><h3>Vendas desta noite</h3>${c.vendas.length?[...c.vendas].reverse().map(v=>`<div class="alert"><span class="num muted" style="width:44px">${v.hora}</span><div style="flex:1;min-width:0">${v.itens.map(x=>`${x.q} ${esc((getProd(x.p)||{}).nome)}`).join(', ')}<br><span class="small muted">${v.forma}${v.desconto?` · desconto de ${brl(v.desconto)}`:''}</span></div><b class="num">${brl(v.total)}</b><button class="x" title="Editar venda" aria-label="Editar venda" onclick="editarVenda('${c.id}','${v.id}')">${ico('edit','width="16" height="16"')}</button><button class="x" title="Desfazer venda" aria-label="Desfazer venda" onclick="desfazerVenda('${v.id}')">${ico('x','width="16" height="16"')}</button></div>`).join(''):'<div class="muted small">Nenhuma venda ainda.</div>'}</div>`;
 };
 function tkAdd(p,d=1){const c=carAberto();if(!c)return;const row=carResumo(c).rows.find(x=>x.p===p);if(!row)return;const q=(TK.itens[p]||0)+d;if(d>0&&q>row.resta)return toast('Não há mais unidades desse produto no carrinho.','bad');if(q<=0)delete TK.itens[p];else TK.itens[p]=q;render()}
+function tkDesc(sub){const v=num(TK.desc);if(!(v>0)||!(sub>0))return 0;return +Math.min(sub,TK.descTipo==='%'?sub*Math.min(v,100)/100:v).toFixed(2)}
 function registrarVenda(){
  const c=carAberto();if(!c)return;const r=carResumo(c);const itens=Object.entries(TK.itens).filter(([,q])=>q>0).map(([p,q])=>({p,q,v:r.rows.find(x=>x.p===p).preco}));if(!itens.length)return;
- const total=+itens.reduce((s,x)=>s+x.q*x.v,0).toFixed(2);
- c.vendas.push({id:uid('v'),data:hoje(),hora:agoraHM(),itens,forma:TK.forma,total});
+ const sub=+itens.reduce((s,x)=>s+x.q*x.v,0).toFixed(2),desc=tkDesc(sub),total=+(sub-desc).toFixed(2);
+ /* o desconto é rateado no valor unitário dos itens, para o faturamento por produto fechar com o total */
+ if(desc>0){const k=total/sub;itens.forEach(x=>x.v=+(x.v*k).toFixed(4))}
+ const venda={id:uid('v'),data:hoje(),hora:agoraHM(),itens,forma:TK.forma,total};if(desc>0)venda.desconto=desc;c.vendas.push(venda);
  const f=TK.forma;TK={itens:{},forma:f,recebido:''};save();render();toast(`Venda de ${brl(total)} registrada`);
 }
 function desfazerVenda(id){askConfirm('Desfazer esta venda? Os produtos voltam para o carrinho.','Desfazer venda',()=>{const c=carAberto();c.vendas=c.vendas.filter(v=>v.id!==id);save();closeModal();render();toast('Venda desfeita')},'Voltar')}
@@ -931,7 +935,7 @@ function evUpd(){const ls=EV.linhas.filter(l=>l.q>0);$('#ev-n').textContent=nq(l
 function evSalvar(){
  const c=S.carrinhos.find(x=>x.id===EV.cid);const v=c.vendas.find(x=>x.id===EV.vid);const ls=EV.linhas.filter(l=>l.q>0);
  if(!ls.length)return toast('Informe a quantidade de pelo menos um produto, ou use "Excluir venda".','bad');
- v.itens=ls.map(l=>({p:l.p,q:l.q,v:l.v}));v.total=+ls.reduce((s,l)=>s+l.q*l.v,0).toFixed(2);v.data=$('#ev-data').value||v.data;v.hora=$('#ev-hora').value||v.hora;v.forma=$('#ev-forma').value;
+ v.itens=ls.map(l=>({p:l.p,q:l.q,v:l.v}));delete v.desconto;v.total=+ls.reduce((s,l)=>s+l.q*l.v,0).toFixed(2);v.data=$('#ev-data').value||v.data;v.hora=$('#ev-hora').value||v.hora;v.forma=$('#ev-forma').value;
  for(const l of ls)if(!c.itens.find(x=>x.p===l.p))c.itens.push({p:l.p,saiu:l.q,sobra:0,preco:l.v});
  recalcCaixa(c);save();toast('Venda atualizada');voltarCarrinho(EV.cid);
 }
@@ -1062,7 +1066,7 @@ function verCarrinho(id){
  <div class="tbl-wrap"><table><thead><tr><th>Produto</th><th class="r">Saiu</th><th class="r">Vendido</th><th class="r">Perda</th><th class="r">Total</th></tr></thead><tbody>
  ${r.rows.map(x=>`<tr><td><div class="nm">${avatar(getProd(x.p),'sm')}<span>${esc((getProd(x.p)||{}).nome)}</span></div></td><td class="r">${nq(x.saiu)}</td><td class="r">${nq(x.vend)}</td><td class="r">${(c.perdas||{})[x.p]?nq(c.perdas[x.p]):'-'}</td><td class="r">${brl(x.rec)}</td></tr>`).join('')}</tbody></table></div>
  <div class="sec">Vendas</div>
- ${c.vendas.length?`<div>${c.vendas.map(v=>`<div class="alert" style="align-items:center"><span class="num muted" style="width:44px">${v.hora}</span><div style="flex:1;min-width:0">${v.itens.map(x=>`${nq(x.q)} ${esc((getProd(x.p)||{}).nome)}`).join(', ')}<br><span class="small muted">${v.forma}</span></div><b class="num">${brl(v.total)}</b><button class="x" title="Editar venda" aria-label="Editar venda" onclick="editarVenda('${c.id}','${v.id}')">${ico('edit','width="16" height="16"')}</button></div>`).join('')}</div>`:'<div class="muted small">Nenhuma venda registrada.</div>'}
+ ${c.vendas.length?`<div>${c.vendas.map(v=>`<div class="alert" style="align-items:center"><span class="num muted" style="width:44px">${v.hora}</span><div style="flex:1;min-width:0">${v.itens.map(x=>`${nq(x.q)} ${esc((getProd(x.p)||{}).nome)}`).join(', ')}<br><span class="small muted">${v.forma}${v.desconto?` · desconto de ${brl(v.desconto)}`:''}</span></div><b class="num">${brl(v.total)}</b><button class="x" title="Editar venda" aria-label="Editar venda" onclick="editarVenda('${c.id}','${v.id}')">${ico('edit','width="16" height="16"')}</button></div>`).join('')}</div>`:'<div class="muted small">Nenhuma venda registrada.</div>'}
  <div class="small muted">${c.vendas.length} vendas. Sobras: ${c.sobraDestino==='perda'?'registradas como perda':'guardadas para a próxima noite'}.${pd.length?` Perdas: ${pd.map(([p,q])=>`${nq(q)} ${esc((getProd(p)||{}).nome)}`).join(', ')}.`:''}</div>`,
  `<button class="btn sp" onclick="editarCarrinho('${c.id}')">${ico('edit')}Editar carrinho</button><button class="btn pri" onclick="closeModal()">Fechar</button>`,true);
 }
