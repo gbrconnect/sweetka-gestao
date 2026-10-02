@@ -625,6 +625,7 @@ function custoUnitIns(i,ov){const f=ov&&ov[i.id]?ov[i.id]:1;return i.qtdEmb>0?i.
 function custoReceita(r,ov){let t=0;for(const g of r.itens){const i=getIns(g.id);if(i)t+=g.qtd*custoUnitIns(i,ov)}const util=r.rendimento*(1-(r.perda||0)/100);return{total:t,porG:util>0?t/util:0,util}}
 function custoProduto(p,ov,depth=0){
  let mat=0,mo=0;if(!p||depth>6)return{mat:0,mo:0,ind:0,total:0};
+ if(p.modoCusto==='manual'){const c=+p.custoManual||0;return{mat:c,mo:0,ind:0,total:c}}
  for(const it of p.itens||[]){
   if(it.t==='i'){const i=getIns(it.id);if(i)mat+=it.q*custoUnitIns(i,ov)}
   else if(it.t==='r'){const r=getRec(it.id);if(r)mat+=it.q*custoReceita(r,ov).porG}
@@ -640,7 +641,7 @@ function margem(preco,total){return preco>0?(preco*(1-deducoes())-total)/preco:0
 function mgClass(m){return m<CFG().margemMin/100?'bad':m<CFG().margemAlvo/100?'warn':'ok'}
 const mgChip=m=>`<span class="mg ${mgClass(m)}">${pct(m)}</span>`;
 function necessidade(prodId,qtd,acc,depth=0){
- const p=getProd(prodId);if(!p||depth>6)return acc;
+ const p=getProd(prodId);if(!p||depth>6||p.modoCusto==='manual')return acc;
  for(const it of p.itens){
   if(it.t==='i')acc[it.id]=(acc[it.id]||0)+it.q*qtd;
   else if(it.t==='r'){const r=getRec(it.id);if(!r)continue;const util=r.rendimento*(1-(r.perda||0)/100);const f=util>0?it.q*qtd/util:0;for(const g of r.itens)acc[g.id]=(acc[g.id]||0)+g.qtd*f}
@@ -1464,12 +1465,12 @@ R.produtos=()=>{
  let L=S.produtos.filter(p=>(UI.prodCat==='Todos'||p.cat===UI.prodCat)&&(!b||p.nome.toLowerCase().includes(b)));
  const rows=L.map(p=>{const c=custoProduto(p);return{p,c,m:margem(p.preco,c.total),sug:precoSugerido(c.total)}});
  const abaixo=rows.filter(r=>r.m<CFG().margemMin/100).length;
- return head('Produtos e preços',`Custo calculado pela ficha técnica: ingredientes, embalagem, mão de obra (${brl(CFG().custoHora)}/hora) e ${CFG().indireto}% de custos indiretos. Preço sugerido para margem de ${CFG().margemAlvo}%.`,`<button class="btn pri" onclick="abrirProduto()">${ico('plus')}Novo produto</button>`)
+ return head('Produtos e preços',`Informe o custo de cada produto direto no cadastro ou deixe o sistema calcular pela ficha técnica. O preço sugerido considera a margem de ${CFG().margemAlvo}%.`,`<button class="btn pri" onclick="abrirProduto()">${ico('plus')}Novo produto</button>`)
  +prodTabs()+`${abaixo?`<div class="card" style="margin-bottom:14px;border-color:var(--bad)"><b class="down">${abaixo} produto${abaixo>1?'s':''} abaixo da margem mínima de ${CFG().margemMin}%.</b> <span class="muted">Clique no produto para ver a composição do custo e usar o preço sugerido.</span></div>`:''}
  <div class="toolbar"><input type="search" class="search" id="prod-busca" placeholder="Buscar produto" value="${esc(UI.prodBusca)}" oninput="UI.prodBusca=this.value;rerenderKeep('prod-busca')">
  <div class="chips">${cats.map(c=>`<button class="chip ${UI.prodCat===c?'on':''}" onclick="UI.prodCat='${c}';render()">${esc(c)}</button>`).join('')}</div></div>
  <div class="tbl-wrap"><table><thead><tr><th>Produto</th><th class="r">Materiais</th><th class="r">Mão de obra</th><th class="r">Custo total</th><th class="r">Preço</th><th class="r">Margem</th><th class="r">Sugerido</th><th class="r">Cento</th></tr></thead><tbody>
- ${rows.map(({p,c,m,sug})=>`<tr class="click" onclick="abrirProduto('${p.id}')"><td><div class="nm">${avatar(p)}<div><b>${esc(p.nome)}</b>${p.ativo===false?' <span class="small muted">(inativo)</span>':''}<br><span class="small muted">${esc(p.cat)}</span></div></div></td>
+ ${rows.map(({p,c,m,sug})=>`<tr class="click" onclick="abrirProduto('${p.id}')"><td><div class="nm">${avatar(p)}<div><b>${esc(p.nome)}</b>${p.ativo===false?' <span class="small muted">(inativo)</span>':''}<br><span class="small muted">${esc(p.cat)}${p.modoCusto==='manual'?' · custo manual':''}</span></div></div></td>
  <td class="r">${brl(c.mat+c.ind)}</td><td class="r">${brl(c.mo)}</td><td class="r"><b>${brl(c.total)}</b></td><td class="r">${brl(p.preco)}</td><td class="r">${mgChip(m)}</td><td class="r">${brl(sug)}</td><td class="r">${p.contaCap?brl(p.preco*100):'<span class="muted">·</span>'}</td></tr>`).join('')}
  </tbody></table></div>
  <div class="card" style="margin-top:18px"><h3>Simulador de reajuste de insumo</h3>
@@ -1487,19 +1488,24 @@ function simular(){
 }
 let EP=null;
 function abrirProduto(id){
- EP=id?clone(getProd(id)):{id:'',nome:'',cat:'Docinhos',preco:0,tempo:1,contaCap:true,ativo:true,itens:[]};
+ EP=id?clone(getProd(id)):{id:'',nome:'',cat:'Docinhos',preco:0,tempo:1,contaCap:true,ativo:true,itens:[],modoCusto:'manual',custoManual:0};EP.modoCusto=EP.modoCusto||'ficha';const man=EP.modoCusto==='manual';
  const cats=[...new Set([...S.produtos.map(p=>p.cat),'Docinhos','Personalizados','Kits e caixas','Eventos'])];
  const body=`<div class="foto-ed"><span id="pr-foto">${avatar(EP,'lg')}</span><div><div class="actions"><label class="btn sm" style="cursor:pointer">${EP.foto?'Trocar foto':'Enviar foto'}<input type="file" id="pr-foto-in" accept="image/png,image/jpeg,image/webp" hidden onchange="lerImagem(this,{max:400,quadrado:true},f=>{EP.foto=f;$('#pr-foto').innerHTML=avatar(EP,'lg')})"></label><button class="btn sm ghost danger" onclick="EP.foto='';$('#pr-foto').innerHTML=avatar(EP,'lg')">Remover</button></div><div class="small muted" style="margin-top:4px">Foto do produto. Aparece redonda ao lado do nome.</div></div></div>
  <div class="frow"><label class="f" style="grid-column:span 2">Nome do produto<input type="text" id="pr-nome" value="${esc(EP.nome)}" placeholder="Ex.: Brigadeiro de pistache 20 g"></label>
   <label class="f">Categoria<input type="text" id="pr-cat" list="pr-cats" value="${esc(EP.cat)}"><datalist id="pr-cats">${cats.map(c=>`<option value="${esc(c)}">`).join('')}</datalist></label></div>
  <div class="frow"><label class="f">Preço de venda (R$)<input type="text" inputmode="decimal" id="pr-preco" value="${n2(EP.preco)}" oninput="prUpd()"></label>
-  <label class="f">Tempo de produção por unidade (min)<input type="text" inputmode="decimal" id="pr-tempo" value="${nq(EP.tempo)}" oninput="prUpd()"></label>
+  <label class="f" id="pr-tempo-w" ${man?'hidden':''}>Tempo de produção por unidade (min)<input type="text" inputmode="decimal" id="pr-tempo" value="${nq(EP.tempo)}" oninput="prUpd()"></label>
   <div style="display:flex;flex-direction:column;gap:6px;justify-content:flex-end"><label class="chk"><input type="checkbox" id="pr-cap" ${EP.contaCap?'checked':''}> Conta na capacidade diária</label><label class="chk"><input type="checkbox" id="pr-ativo" ${EP.ativo!==false?'checked':''}> Produto ativo</label><label class="chk"><input type="checkbox" id="pr-catalogo" ${(EP.catalogo??(EP.cat!=='Adicionais'))?'checked':''}> Aparece no catálogo</label></div></div>
  <label class="f">Descrição para o catálogo <small>(opcional, uma frase curta)</small><input type="text" id="pr-desc" maxlength="90" value="${esc(EP.desc||'')}" placeholder="Ex.: Brigadeiro cremoso de chocolate com granulado belga"></label>
- <div class="sec">Ficha técnica (por unidade vendida)</div>
+ <div class="sec">Como informar o custo</div>
+ <div class="tabs" style="margin-bottom:0"><button id="pr-m-manual" class="${man?'on':''}" onclick="prModo('manual')">Custo manual</button><button id="pr-m-ficha" class="${man?'':'on'}" onclick="prModo('ficha')">Ficha técnica</button></div>
+ <div id="pr-manual" ${man?'':'hidden'}><div class="frow"><label class="f">Custo por unidade (R$)<input type="text" inputmode="decimal" id="pr-custo" value="${n2(EP.custoManual||0)}" oninput="prUpd()"></label></div>
+  <div class="small muted" style="margin-top:6px">Digite quanto custa fazer uma unidade, já com ingredientes e embalagem. É o jeito mais rápido de começar. Depois você pode trocar para a ficha técnica, que calcula o custo sozinha pelos insumos.</div></div>
+ <div id="pr-ficha" ${man?'hidden':''} style="display:flex;flex-direction:column;gap:12px">
  <div class="crow irow h" style="display:grid"><span>Tipo</span><span>Item</span><span>Quantidade</span><span class="cc" style="text-align:right">Custo</span><span></span></div>
  <div id="pr-itens" class="list" style="gap:8px"></div>
  <div class="actions"><button class="btn sm" onclick="prAdd('r')">${ico('plus')}Receita base</button><button class="btn sm" onclick="prAdd('i')">${ico('plus')}Insumo ou embalagem</button><button class="btn sm" onclick="prAdd('p')">${ico('plus')}Outro produto (kit)</button></div>
+ </div>
  <div class="inner" id="pr-res"></div>`;
  openModal(id?EP.nome:'Novo produto',body,`${id?`<button class="btn ghost danger sp" onclick="excluirProduto('${id}')">Excluir</button>`:''}<button class="btn" onclick="closeModal()">Cancelar</button><button class="btn pri" onclick="prSalvar()">Salvar produto</button>`,true);
  prItens();
@@ -1515,11 +1521,12 @@ function prItens(){
  prUpd();
 }
 function prAdd(t){const id=t==='r'?S.receitas[0]?.id:t==='i'?S.insumos[0]?.id:S.produtos.find(p=>p.id!==EP.id)?.id;if(!id)return toast('Nenhum item desse tipo cadastrado.','bad');EP.itens.push({t,id,q:t==='r'?20:1});prItens()}
+function prModo(m){EP.modoCusto=m;const man=m==='manual';$('#pr-manual').hidden=!man;$('#pr-ficha').hidden=man;$('#pr-tempo-w').hidden=man;$('#pr-m-manual').classList.toggle('on',man);$('#pr-m-ficha').classList.toggle('on',!man);prUpd()}
 function prUpd(){
- EP.preco=num($('#pr-preco').value);EP.tempo=num($('#pr-tempo').value);EP.itens.forEach((it,i)=>{const e=$('#pr-c-'+i);if(e)e.textContent=brl(custoItem(it))});
+ EP.preco=num($('#pr-preco').value);EP.tempo=num($('#pr-tempo').value);EP.custoManual=num($('#pr-custo').value);EP.itens.forEach((it,i)=>{const e=$('#pr-c-'+i);if(e)e.textContent=brl(custoItem(it))});
  const c=custoProduto(EP);const m=margem(EP.preco,c.total);const sug=precoSugerido(c.total);const sugMin=precoSugerido(c.total,CFG().margemMin);
- $('#pr-res').innerHTML=`<div class="lbl">Composição do custo por unidade</div><div class="kv">
-  <div><span>Materiais</span><b>${brl(c.mat)}</b></div><div><span>Mão de obra</span><b>${brl(c.mo)}</b></div><div><span>Indiretos (${CFG().indireto}%)</span><b>${brl(c.ind)}</b></div>
+ $('#pr-res').innerHTML=`<div class="lbl">${EP.modoCusto==='manual'?'Resultado por unidade':'Composição do custo por unidade'}</div><div class="kv">
+  ${EP.modoCusto==='manual'?'':`<div><span>Materiais</span><b>${brl(c.mat)}</b></div><div><span>Mão de obra</span><b>${brl(c.mo)}</b></div><div><span>Indiretos (${CFG().indireto}%)</span><b>${brl(c.ind)}</b></div>`}
   <div><span>Custo total</span><b>${brl(c.total)}</b></div><div><span>Impostos e taxas</span><b>${brl(EP.preco*deducoes())}</b></div><div><span>Lucro por unidade</span><b class="${m<0?'down':''}">${brl(EP.preco*(1-deducoes())-c.total)}</b></div>
   <div><span>Margem atual</span><b>${mgChip(m)}</b></div><div><span>Preço mínimo (${CFG().margemMin}%)</span><b>${brl(sugMin)}</b></div><div><span>Preço sugerido (${CFG().margemAlvo}%)</span><b>${brl(sug)}</b></div></div>
   <div style="margin-top:10px"><button class="btn sm" onclick="$('#pr-preco').value=n2(${sug.toFixed(2)});prUpd()">Usar preço sugerido</button></div>`;
@@ -1733,7 +1740,7 @@ function vazio(){const b=seed();return{versao:1,seq:2000,exemplo:false,config:{.
 function zerar(tudo){
  for(const k of['pedidos','orcamentos','clientes','lancamentos','compras','carrinhos','producoes'])S[k]=[];S.estoqueProntos={};S.exemplo=false;S.config.proxPedido=1;S.config.proxOrc=1;TK={itens:{},forma:'Pix',recebido:''};
  if(tudo){S.insumos=[];S.receitas=[];S.produtos=[]}else for(const i of S.insumos)i.estoque=0;
- save();closeModal();go('painel');toast(tudo?'Sistema zerado. Comece cadastrando insumos e produtos.':'Movimentações apagadas');
+ save();closeModal();go('painel');toast(tudo?'Sistema zerado. Comece cadastrando os seus produtos.':'Movimentações apagadas');
 }
 function salvarCfg(){const c=CFG();c.custoMetodo=$('#cf-custoMetodo').value;for(const k of['margemAlvo','margemMin','imposto','taxa','custoHora','indireto','capacidade','sinalPct','validade'])c[k]=num($('#cf-'+k).value);
  if(c.margemAlvo+c.imposto+c.taxa>=100)return toast('Margem, impostos e taxas somados precisam ficar abaixo de 100%.','bad');
