@@ -604,7 +604,7 @@ function seed(){
   const itens=base.map(([p,q])=>({p,saiu:q,sobra:0,preco:P.find(x=>x.id===p).preco}));const vendas=[];let min=18*60+40;
   const rest={};itens.forEach(i=>rest[i.p]=Math.round(i.saiu*(0.72+rnd()*0.26)));
   let guard=0;while(Object.values(rest).some(q=>q>0)&&guard++<200){const its=[];const k=1+Math.floor(rnd()*3);for(let j=0;j<k;j++){const av=Object.keys(rest).filter(p=>rest[p]>0);if(!av.length)break;const p=av[Math.floor(rnd()*av.length)];const q=Math.min(rest[p],1+Math.floor(rnd()*(p==='p1'||p==='p2'?6:2)));rest[p]-=q;const ex=its.find(x=>x.p===p);if(ex)ex.q+=q;else its.push({p,q,v:itens.find(i=>i.p===p).preco})}
-   if(!its.length)break;min+=2+Math.floor(rnd()*5);const f=rnd();vendas.push({id:'v'+n+'_'+vendas.length,data:dia,hora:String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0'),itens:its,forma:f<0.62?'Pix':f<0.85?'Dinheiro':'Cartão',total:+its.reduce((s,x)=>s+x.q*x.v,0).toFixed(2)})}
+   if(!its.length)break;min+=2+Math.floor(rnd()*5);const f=rnd();vendas.push({id:'v'+n+'_'+vendas.length,data:dia,hora:String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0'),itens:its,forma:f<0.62?'Pix':f<0.85?'Dinheiro':f<0.93?'Débito':'Crédito',total:+its.reduce((s,x)=>s+x.q*x.v,0).toFixed(2)})}
   const perdas={};itens.forEach(i=>{const v=vendas.reduce((s,x)=>s+x.itens.filter(y=>y.p===i.p).reduce((a,b)=>a+b.q,0),0);const sob=i.saiu-v;if(sob>0)perdas[i.p]=sob});
   const din=vendas.filter(v=>v.forma==='Dinheiro').reduce((s,v)=>s+v.total,0);
   car.push({id:'k'+(n+1),num:16-n,status:'fechado',abertura:dia+' 18:30',fechamento:dia+' '+String(Math.floor(Math.min(min+10,23*60+50)/60)).padStart(2,'0')+':'+String(Math.min(min+10,23*60+50)%60).padStart(2,'0'),fundo:50,itens,vendas,perdas,sobraDestino:'perda',dinheiroContado:+(50+din).toFixed(2),difCaixa:0,baixa:true});
@@ -635,7 +635,12 @@ function custoProduto(p,ov,depth=0){
  const ind=mat*CFG().indireto/100;
  return{mat,mo,ind,total:mat+mo+ind};
 }
-const deducoes=()=>(CFG().imposto+CFG().taxa)/100;
+const txD=()=>+(CFG().taxaDebito??CFG().taxa??0)||0,txC=()=>+(CFG().taxaCredito??CFG().taxa??0)||0;
+function taxaForma(f){f=String(f||'');return /d[ée]b/i.test(f)?txD():/cr[ée]d|cart/i.test(f)?txC():0}
+const formaCar=f=>f==='Cartão'?'Crédito':f;
+function taxasVendas(vs){return vs.reduce((s,v)=>s+(v.total??v.valor??0)*taxaForma(v.forma)/100,0)}
+/* Na precificação vale a taxa do crédito (pior caso): o preço se sustenta em qualquer forma de pagamento */
+const deducoes=()=>(CFG().imposto+txC())/100;
 function precoSugerido(total,alvo){const a=(alvo??CFG().margemAlvo)/100;const den=1-deducoes()-a;return den>0?total/den:0}
 function margem(preco,total){return preco>0?(preco*(1-deducoes())-total)/preco:0}
 function mgClass(m){return m<CFG().margemMin/100?'bad':m<CFG().margemAlvo/100?'warn':'ok'}
@@ -833,16 +838,16 @@ function itemPedido(p,semValor){
 
 /* ============ CARRINHO ============ */
 const agoraHM=()=>{const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
-const FORMAS_CAR=['Pix','Dinheiro','Cartão'];
+const FORMAS_CAR=['Pix','Dinheiro','Débito','Crédito'];
 function carAberto(){return (S.carrinhos||[]).find(c=>c.status==='aberto')}
 function carResumo(c){
  const m={};for(const l of c.itens)m[l.p]={p:l.p,saiu:l.saiu,sobra:l.sobra||0,preco:l.preco,vend:0,rec:0};
  for(const v of c.vendas)for(const x of v.itens){const r=m[x.p]||(m[x.p]={p:x.p,saiu:0,sobra:0,preco:x.v,vend:0,rec:0});r.vend+=x.q;r.rec+=x.q*x.v}
  const rows=Object.values(m);rows.forEach(r=>r.resta=r.saiu-r.vend);
- const total=c.vendas.reduce((s,v)=>s+v.total,0);const porForma={};for(const f of FORMAS_CAR)porForma[f]=0;c.vendas.forEach(v=>porForma[v.forma]=(porForma[v.forma]||0)+v.total);
+ const total=c.vendas.reduce((s,v)=>s+v.total,0);const porForma={};for(const f of FORMAS_CAR)porForma[f]=0;c.vendas.forEach(v=>{const k=formaCar(v.forma);porForma[k]=(porForma[k]||0)+v.total});
  const saiu=rows.reduce((s,r)=>s+r.saiu,0),vend=rows.reduce((s,r)=>s+r.vend,0);
  let custo=0,mat=0,mo=0;for(const r of rows){const k=custoProduto(getProd(r.p));const q=r.vend+((c.perdas||{})[r.p]||0);custo+=q*k.total;mat+=q*(k.mat+k.ind);mo+=q*k.mo}
- return{rows,total,porForma,saiu,vend,custo,mat,mo,lucro:total*(1-deducoes())-custo};
+ const taxas=taxasVendas(c.vendas);return{rows,total,porForma,saiu,vend,custo,mat,mo,taxas,lucro:total*(1-CFG().imposto/100)-taxas-custo};
 }
 function candidatosCarrinho(){return S.produtos.filter(p=>p.ativo!==false&&!['Eventos','Adicionais','Kits e caixas'].includes(p.cat))}
 function ultimoCarrinho(){return [...(S.carrinhos||[])].filter(c=>c.status==='fechado').sort((a,b)=>b.abertura.localeCompare(a.abertura))[0]}
@@ -913,7 +918,7 @@ function editarVenda(cid,vid){
  EV={cid,vid,linhas:c.itens.map(l=>{const x=v.itens.find(y=>y.p===l.p);return{p:l.p,q:x?x.q:0,v:x?x.v:l.preco}})};
  for(const x of v.itens)if(!EV.linhas.find(l=>l.p===x.p))EV.linhas.push({p:x.p,q:x.q,v:x.v});
  openModal('Editar venda',`<div class="frow"><label class="f">Data<input type="date" id="ev-data" value="${v.data}"></label><label class="f">Hora<input type="time" id="ev-hora" value="${v.hora}"></label>
-  <label class="f">Forma de pagamento<select id="ev-forma">${FORMAS_CAR.map(f=>`<option ${f===v.forma?'selected':''}>${f}</option>`).join('')}</select></label></div>
+  <label class="f">Forma de pagamento<select id="ev-forma">${FORMAS_CAR.map(f=>`<option ${f===formaCar(v.forma)?'selected':''}>${f}</option>`).join('')}</select></label></div>
  <div class="irow h" style="grid-template-columns:minmax(0,1fr) 76px 96px"><span>Produto</span><span>Qtd</span><span>Valor un.</span></div>
  <div class="list" style="gap:6px">${EV.linhas.map((l,i)=>`<div class="irow" style="grid-template-columns:minmax(0,1fr) 76px 96px"><span class="nm">${avatar(getProd(l.p),'sm')}<span>${esc((getProd(l.p)||{}).nome||'?')}</span></span>
   <input type="text" inputmode="numeric" id="ev-q-${i}" value="${l.q?nq(l.q):''}" placeholder="0" oninput="EV.linhas[${i}].q=num(this.value);evUpd()">
@@ -1639,7 +1644,7 @@ function dreMes(k){
  const ent=S.pedidos.filter(p=>p.status==='entregue'&&p.dataEntrega.slice(0,7)===k);let rec=0,mat=0,mo=0;
  for(const p of ent){const t=totaisDoc(p);rec+=t.total;mat+=t.mat;mo+=t.mo}
  const ck=carrinhoMes(k);const recEnc=rec;rec+=ck.rec;mat+=ck.mat;mo+=ck.mo;
- const imp=rec*CFG().imposto/100,tx=rec*CFG().taxa/100;const mc=rec-imp-tx-mat;
+ const imp=rec*CFG().imposto/100,tx=ent.reduce((s,p)=>s+taxasVendas(p.pagamentos||[]),0)+taxasVendas(vendasCarrinhoPeriodo(k+'-01',k+'-31').map(x=>x.v));const mc=rec-imp-tx-mat;
  const desp=S.lancamentos.filter(l=>l.tipo==='saida'&&l.data.slice(0,7)===k&&!['Insumos','Embalagens'].includes(l.cat));
  const dsp=desp.reduce((s,l)=>s+l.valor,0);return{n:ent.length,recEnc,recCar:ck.rec,rec,imp,tx,mat,mc,dsp,res:mc-dsp,mo,final:mc-dsp-mo,desp};
 }
@@ -1662,7 +1667,7 @@ R.financeiro=()=>{
   <tr class="sub"><td>Encomendas (${d.n} pedidos entregues)</td><td>${brl(d.recEnc)}</td></tr>
   <tr class="sub"><td>Carrinho</td><td>${brl(d.recCar)}</td></tr>
   <tr class="sub"><td>(-) Impostos sobre venda (${nq(CFG().imposto)}%)</td><td>${brl(-d.imp)}</td></tr>
-  <tr class="sub"><td>(-) Taxas de recebimento (${nq(CFG().taxa)}%)</td><td>${brl(-d.tx)}</td></tr>
+  <tr class="sub"><td>(-) Taxas de cartão (débito ${nq(txD())}%, crédito ${nq(txC())}%)</td><td>${brl(-d.tx)}</td></tr>
   <tr class="sub"><td>(-) Custo dos produtos vendidos e perdas do carrinho</td><td>${brl(-d.mat)}</td></tr>
   <tr class="tot"><td>Margem de contribuição</td><td>${brl(d.mc)}${r(d.mc)}</td></tr>
   <tr class="sub"><td>(-) Despesas do mês (gás, energia, DAS, marketing...)</td><td>${brl(-d.dsp)}</td></tr>
@@ -1689,7 +1694,7 @@ R.relatorios=()=>{
  const[lbl,de,ate]=per[UI.relPer];const ps=S.pedidos.filter(p=>p.status==='entregue'&&p.dataEntrega>=de&&p.dataEntrega<=ate);
  const agg={};let rec=0,luc=0;const cat={};
  for(const p of ps){const t=totaisDoc(p);rec+=t.total;luc+=t.lucro;for(const x of p.itens){const pr=getProd(x.p);if(!pr)continue;const c=custoProduto(pr);const a=agg[x.p]=agg[x.p]||{q:0,r:0,l:0};a.q+=x.q;a.r+=x.q*x.v;a.l+=x.q*x.v*(1-deducoes())-x.q*c.total;cat[pr.cat]=(cat[pr.cat]||0)+x.q*x.v}}
- let recCar=0;for(const{v}of vendasCarrinhoPeriodo(de,ate))for(const x of v.itens){const pr=getProd(x.p);if(!pr)continue;const c=custoProduto(pr);const a=agg[x.p]=agg[x.p]||{q:0,r:0,l:0};const l=x.q*x.v*(1-deducoes())-x.q*c.total;a.q+=x.q;a.r+=x.q*x.v;a.l+=l;rec+=x.q*x.v;luc+=l;recCar+=x.q*x.v;cat[pr.cat]=(cat[pr.cat]||0)+x.q*x.v}
+ let recCar=0;for(const{v}of vendasCarrinhoPeriodo(de,ate))for(const x of v.itens){const pr=getProd(x.p);if(!pr)continue;const c=custoProduto(pr);const a=agg[x.p]=agg[x.p]||{q:0,r:0,l:0};const l=x.q*x.v*(1-CFG().imposto/100-taxaForma(v.forma)/100)-x.q*c.total;a.q+=x.q;a.r+=x.q*x.v;a.l+=l;rec+=x.q*x.v;luc+=l;recCar+=x.q*x.v;cat[pr.cat]=(cat[pr.cat]||0)+x.q*x.v}
  const rows=Object.entries(agg).map(([id,a])=>({p:getProd(id),...a})).sort((a,b)=>b.r-a.r);const totR=rows.reduce((s,r)=>s+r.r,0);let acc=0;
  rows.forEach(r=>{acc+=r.r;r.abc=acc/totR<=0.8?'A':acc/totR<=0.95?'B':'C'});
  const maxL=Math.max(...rows.map(r=>Math.abs(r.l)),1);
@@ -1708,7 +1713,7 @@ R.config=()=>{const c=CFG();const f=(id,l,v,h='')=>`<label class="f">${l}${h?` <
  return head('Configurações','Parâmetros que alimentam todos os cálculos de custo, preço e capacidade.')
  +`<div class="grid g2"><div class="card"><h3>Precificação</h3><div class="frow">
   ${f('margemAlvo','Margem desejada (%)',c.margemAlvo)}${f('margemMin','Margem mínima (%)',c.margemMin,'abaixo disso gera alerta')}
-  ${f('imposto','Impostos sobre venda (%)',c.imposto,'MEI: use 0 e lance o DAS como despesa')}${f('taxa','Taxa média de recebimento (%)',c.taxa,'maquininha e Pix')}
+  ${f('imposto','Impostos sobre venda (%)',c.imposto,'MEI: use 0 e lance o DAS como despesa')}${f('taxaDebito','Taxa do cartão de débito (%)',txD(),'Pix e dinheiro não têm taxa')}${f('taxaCredito','Taxa do cartão de crédito (%)',txC(),'usada no preço sugerido e na margem')}
   ${f('custoHora','Valor da hora de trabalho (R$)',c.custoHora)}${f('indireto','Custos indiretos (%)',c.indireto,'gás, energia, água sobre materiais')}
   <label class="f">Atualização do custo nas compras<select id="cf-custoMetodo"><option value="medio" ${(c.custoMetodo||'medio')==='medio'?'selected':''}>Custo médio ponderado</option><option value="ultimo" ${c.custoMetodo==='ultimo'?'selected':''}>Preço da última compra</option></select></label></div></div>
  <div class="card"><h3>Operação e empresa</h3><div class="frow">
@@ -1741,8 +1746,8 @@ function zerar(tudo){
  if(tudo){S.insumos=[];S.receitas=[];S.produtos=[]}else for(const i of S.insumos)i.estoque=0;
  save();closeModal();go('painel');toast(tudo?'Sistema zerado. Comece cadastrando os seus produtos.':'Movimentações apagadas');
 }
-function salvarCfg(){const c=CFG();c.custoMetodo=$('#cf-custoMetodo').value;for(const k of['margemAlvo','margemMin','imposto','taxa','custoHora','indireto','capacidade','sinalPct','validade'])c[k]=num($('#cf-'+k).value);
- if(c.margemAlvo+c.imposto+c.taxa>=100)return toast('Margem, impostos e taxas somados precisam ficar abaixo de 100%.','bad');
+function salvarCfg(){const c=CFG();c.custoMetodo=$('#cf-custoMetodo').value;for(const k of['margemAlvo','margemMin','imposto','taxaDebito','taxaCredito','custoHora','indireto','capacidade','sinalPct','validade'])c[k]=num($('#cf-'+k).value);
+ c.taxa=c.taxaCredito;if(c.margemAlvo+c.imposto+c.taxaCredito>=100)return toast('Margem, impostos e taxas somados precisam ficar abaixo de 100%.','bad');
  for(const k of['empresa','instagram','whatsapp','marca','marcaSub','pix','agradecimento'])c[k]=$('#cf-'+k).value.trim();save();render();toast('Configurações salvas')}
 
 /* ============ PDF ============ */
