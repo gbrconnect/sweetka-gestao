@@ -1843,9 +1843,8 @@ async function salvarArquivo(fn,blob){
 /* ===== Cardápio do carrinho em imagem (Instagram) ===== */
 function cardapioCarrinho(){
  if(!carAberto())return toast('Abra o carrinho primeiro.','bad');
- openModal(`<h2>Cardápio de hoje para o Instagram</h2><p class="muted small" style="margin:-4px 0 14px">Gera uma imagem com os produtos que estão no carrinho agora (os esgotados ficam de fora). Escolha o formato.</p>
- <div class="grid g2"><button class="btn pri" style="padding:16px" onclick="cardapioPNG('feed')">Post do feed<br><span class="small" style="font-weight:500">1080 x 1350</span></button><button class="btn pri" style="padding:16px" onclick="cardapioPNG('story')">Stories<br><span class="small" style="font-weight:500">1080 x 1920</span></button></div>
- <div class="modal-foot"><button class="btn" onclick="closeModal()">Voltar</button></div>`)}
+ openModal('Cardápio de hoje para o Instagram',`<p class="muted small" style="margin:0 0 14px">Gera uma imagem com os produtos que estão no carrinho agora (os esgotados ficam de fora). Escolha o formato.</p>
+ <div class="grid g2"><button class="btn pri" style="padding:16px" onclick="cardapioPNG('feed')">Post do feed<br><span class="small" style="font-weight:500">1080 x 1350</span></button><button class="btn pri" style="padding:16px" onclick="cardapioPNG('story')">Stories<br><span class="small" style="font-weight:500">1080 x 1920</span></button></div>`,`<button class="btn" onclick="closeModal()">Voltar</button>`)}
 async function cardapioPNG(fmt){
  const car=carAberto();if(!car)return;const res=carResumo(car);let L=res.rows.filter(x=>x.resta>0);if(!L.length)L=res.rows;if(!L.length)return toast('O carrinho está sem produtos.','bad');
  const c=CFG(),W=1080,H=fmt==='story'?1920:1350,FF='"Plus Jakarta Sans",system-ui,sans-serif',GOLD='#94733A',INK='#2A2229',MUT='#766C77',SOFT='#F4ECDD';
