@@ -865,7 +865,7 @@ R.carrinho=()=>{
   const sob=[];
   const est=candidatosCarrinho().filter(p=>prontos(p.id)>0);
   return head('Carrinho','Abra o carrinho com o que vai levar, toque nos produtos a cada venda e feche no fim da noite.',`<button class="btn pri" onclick="abrirCarrinho()">${ico('carrinho')}Abrir carrinho</button>`)
-  +`${est.length?`<div class="card" style="margin-bottom:16px"><h3>Sobras guardadas da última noite</h3><div class="prontos">${est.map(p=>`<div class="pronto">${avatar(p)}<span>${esc(p.nome)}</span><b class="num">${nq(prontos(p.id))}</b></div>`).join('')}</div></div>`:''}
+  +`${est.length?`<div class="card" style="margin-bottom:16px"><h3>Sobras guardadas da última noite <button class="btn sm ghost" onclick="zerarSobras()">Descartar sobras</button></h3><div class="prontos">${est.map(p=>`<div class="pronto">${avatar(p)}<span>${esc(p.nome)}</span><b class="num">${nq(prontos(p.id))}</b></div>`).join('')}</div></div>`:''}
   `+`${sob.length?`<div class="card" style="margin-bottom:16px"><b>Sobras guardadas do último carrinho:</b> ${sob.map(([p,q])=>`${nq(q)} ${esc((getProd(p)||{}).nome||'?')}`).join(', ')}. Elas entram automaticamente no próximo carrinho.</div>`:''}
   <div class="grid g4" style="margin-bottom:16px">
    <div class="card kpi"><div class="l">Vendido no carrinho em ${MESES[+k.slice(5)-1]}</div><div class="v num">${brl(totMes)}</div><div class="d">${mes.length} noite${mes.length===1?'':'s'}</div></div>
@@ -968,7 +968,8 @@ function ekSalvar(){
   const pd={};for(const l of EK.linhas)if(l.q>0&&l.perda>0)pd[l.p]=Math.min(l.perda,Math.max(0,l.q-(vend[l.p]||0)));c.perdas=pd;recalcCaixa(c)}
  save();toast('Carrinho atualizado');voltarCarrinho(EK.cid);
 }
-function excluirCarrinho(cid){askConfirm('Excluir este carrinho e todas as vendas dele? Essa ação não pode ser desfeita.','Excluir carrinho',()=>{S.carrinhos=S.carrinhos.filter(x=>x.id!==cid);TK={itens:{},forma:'Pix',recebido:''};save();closeModal();render();toast('Carrinho excluído')},'Voltar',()=>editarCarrinho(cid))}
+function excluirCarrinho(cid){askConfirm('Excluir este carrinho e todas as vendas dele? Essa ação não pode ser desfeita.','Excluir carrinho',()=>{const k=S.carrinhos.find(x=>x.id===cid);if(k&&k.status==='fechado'&&k.sobraDestino!=='perda'){S.estoqueProntos=S.estoqueProntos||{};for(const x of carResumo(k).rows){const q=Math.max(0,x.resta-((k.perdas||{})[x.p]||0));if(q>0){const n=Math.max(0,prontos(x.p)-q);if(n>0)S.estoqueProntos[x.p]=n;else delete S.estoqueProntos[x.p]}}}S.carrinhos=S.carrinhos.filter(x=>x.id!==cid);TK={itens:{},forma:'Pix',recebido:''};save();closeModal();render();toast('Carrinho excluído')},'Voltar',()=>editarCarrinho(cid))}
+function zerarSobras(){askConfirm('Descartar todas as sobras guardadas? Elas deixam de entrar no próximo carrinho.','Descartar sobras',()=>{S.estoqueProntos={};save();closeModal();render();toast('Sobras descartadas')},'Voltar')}
 function levarProdutos(lista){ /* usa primeiro as sobras guardadas; o restante conta como produzido agora e baixa os insumos */
  const novos=[];for(const l of lista){const usa=Math.min(l.q,prontos(l.p));if(usa>0)S.estoqueProntos[l.p]=prontos(l.p)-usa;if(l.q-usa>0)novos.push({p:l.p,q:l.q-usa})}
  if(novos.length)baixaEstoque({itens:novos},-1);
