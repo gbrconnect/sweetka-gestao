@@ -969,6 +969,7 @@ function levarProdutos(lista){ /* usa primeiro as sobras guardadas; o restante c
 }
 function abrirCarrinho(){
  if(carAberto())return go('carrinho');
+ if(!candidatosCarrinho().length)return toast('Cadastre seus produtos em Produtos e preços para abrir o carrinho.','bad');
  const ult=ultimoCarrinho();
  EA={fundo:ult?ult.fundo:50,linhas:candidatosCarrinho().map(p=>{const lu=ult&&ult.itens.find(x=>x.p===p.id);return{p:p.id,q:0,preco:lu?lu.preco:p.preco}})};
  openModal('Abrir carrinho',`<div class="frow"><label class="f">Troco inicial em dinheiro (R$)<input type="text" inputmode="decimal" id="ea-fundo" value="${n2(EA.fundo)}"></label></div>
@@ -1212,7 +1213,7 @@ let ED=null;
 function editarDoc(kind,id){
  const col=kind==='ped'?S.pedidos:S.orcamentos;let d;
  if(id)d=clone(col.find(x=>x.id===id));
- else{const dt=UI.novaData||addDias(hoje(),7);UI.novaData=null;d={id:'',num:0,cliente:'',titulo:'',aniversariante:'',dataEntrega:dt,hora:'14:00',modo:'retirada',endereco:'',itens:[{p:'p1',q:100,v:getProd('p1')?.preco||0}],desconto:0,frete:0,obs:''};
+ else{const dt=UI.novaData||addDias(hoje(),7);UI.novaData=null;d={id:'',num:0,cliente:'',titulo:'',aniversariante:'',dataEntrega:dt,hora:'14:00',modo:'retirada',endereco:'',itens:(p0=>p0?[{p:p0.id,q:p0.contaCap?100:1,v:p0.preco}]:[])(S.produtos.find(x=>x.ativo!==false)),desconto:0,frete:0,obs:''};
   if(kind==='ped'){d.status='aguardando_sinal';d.pagamentos=[];d.criado=hoje();d.baixado=false}else{d.status='aberto';d.sinalPct=CFG().sinalPct;d.criado=hoje();d.validade=addDias(hoje(),CFG().validade)}}
  ED={kind,d,novoCli:false};
  const cliOpts=[...S.clientes].sort((a,b)=>a.nome.localeCompare(b.nome)).map(c=>`<option value="${c.id}" ${c.id===d.cliente?'selected':''}>${esc(c.nome)}</option>`).join('');
@@ -1248,7 +1249,7 @@ function edItens(){
  edUpd();
 }
 function edProd(i,v){ED.d.itens[i].p=v;ED.d.itens[i].v=getProd(v).preco;$('#ed-v-'+i).value=n2(ED.d.itens[i].v);edUpd()}
-function edAdd(){ED.d.itens.push({p:'p1',q:50,v:getProd('p1')?.preco||0});edItens()}
+function edAdd(){const p0=S.produtos.find(x=>x.ativo!==false);if(!p0)return toast('Cadastre um produto em Produtos e preços para adicionar itens.','bad');ED.d.itens.push({p:p0.id,q:p0.contaCap?50:1,v:p0.preco});edItens()}
 function edUpd(){
  const d=ED.d;d.desconto=num($('#ed-desc').value);d.frete=num($('#ed-frete').value);d.dataEntrega=$('#ed-data').value||d.dataEntrega;
  d.itens.forEach((x,i)=>{const e=$('#ed-t-'+i);if(e)e.textContent=brl(x.q*x.v)});
@@ -1328,6 +1329,7 @@ function registrarCompra(){
 /* ============ LANÇAR COMPRA ============ */
 let EC=null;
 function lancarCompra(pre,daLista){
+ if(!S.insumos.length)return toast('Cadastre um insumo antes de lançar uma compra.','bad');
  const lin=(pre&&pre.length?pre:[{id:(S.insumos[0]||{}).id,emb:1,preco:(S.insumos[0]||{}).precoEmb||0}]).map(x=>({...x}));
  EC={data:hoje(),fornecedor:(getIns(lin[0].id)||{}).fornecedor||'',forma:'Pix',frete:0,desconto:0,fin:true,itens:lin};
  const forn=[...new Set(S.insumos.map(i=>i.fornecedor).filter(Boolean))];
@@ -1547,7 +1549,7 @@ function abrirReceita(id){
  <label class="f">Rendimento (g)<input type="text" inputmode="decimal" id="rc-rend" value="${nq(ER.rendimento)}" oninput="ER.rendimento=num(this.value);rcUpd()"></label>
  <label class="f">Perda no preparo (%)<input type="text" inputmode="decimal" id="rc-perda" value="${nq(ER.perda)}" oninput="ER.perda=num(this.value);rcUpd()"></label></div>
  <div class="sec">Ingredientes</div><div id="rc-itens" class="list" style="gap:8px"></div>
- <div><button class="btn sm" onclick="ER.itens.push({id:S.insumos[0].id,qtd:100});rcItens()">${ico('plus')}Adicionar ingrediente</button></div><div class="inner" id="rc-res"></div>`,
+ <div><button class="btn sm" onclick="if(!S.insumos.length)return toast('Cadastre um insumo antes.','bad');ER.itens.push({id:S.insumos[0].id,qtd:100});rcItens()">${ico('plus')}Adicionar ingrediente</button></div><div class="inner" id="rc-res"></div>`,
  `${id?`<button class="btn ghost danger sp" onclick="excluirReceita('${id}')">Excluir</button>`:''}<button class="btn" onclick="closeModal()">Cancelar</button><button class="btn pri" onclick="rcSalvar()">Salvar receita</button>`,true);
  rcItens();
 }
@@ -1723,9 +1725,16 @@ R.config=()=>{const c=CFG();const f=(id,l,v,h='')=>`<label class="f">${l}${h?` <
   <div class="actions"><button class="btn" onclick="copiarTexto(JSON.stringify(S))">${ico('copy')}Copiar backup</button></div>
   <div class="sec" style="margin:16px 0 8px">Restaurar backup</div><textarea id="cf-imp" placeholder="Cole aqui o texto do backup"></textarea>
   <div class="actions" style="margin-top:8px"><button class="btn" onclick="importar($('#cf-imp').value)">Restaurar do texto</button><label class="btn" style="cursor:pointer">Abrir arquivo<input type="file" id="cf-file" accept=".json,.txt" hidden onchange="lerArquivo(this)"></label></div></div>
- <div class="card"><h3>Dados de exemplo</h3><p class="small muted" style="margin-top:-4px">O sistema abriu com produtos, receitas e pedidos de exemplo baseados no cardápio da Sweet Ka. Os preços e quantidades são estimativas para demonstração.</p>
-  <div class="actions"><button class="btn" onclick="askConfirm('Voltar para os dados de exemplo? Tudo que foi lançado será substituído.','Restaurar exemplo',()=>{S=seed();save();closeModal();go('painel');toast('Dados de exemplo restaurados')},'Voltar')">Restaurar exemplo</button>
-  <button class="btn danger" onclick="askConfirm('Começar do zero? Pedidos, orçamentos, clientes e lançamentos serão apagados. Insumos, receitas e produtos ficam.','Apagar movimentações',()=>{S.pedidos=[];S.orcamentos=[];S.clientes=[];S.lancamentos=[];S.exemplo=false;save();closeModal();go('painel');toast('Movimentações apagadas')},'Voltar')">Começar do zero</button></div></div></div>`};
+ <div class="card"><h3>Zerar ou restaurar dados</h3><p class="small muted" style="margin-top:-4px">Use para começar a usar o sistema de verdade ou para voltar aos dados de demonstração. Copie o backup antes, se quiser guardar o que está lançado.</p>
+  <div class="actions"><button class="btn danger" onclick="askConfirm('Apagar as movimentações? Pedidos, orçamentos, clientes, carrinhos, compras e lançamentos serão apagados. Produtos, receitas e insumos ficam.','Apagar movimentações',()=>zerar(false),'Voltar')">Apagar movimentações</button>
+  <button class="btn danger" onclick="askConfirm('Zerar tudo? Além das movimentações, serão apagados todos os produtos, receitas e insumos. O sistema fica vazio.','Zerar tudo',()=>zerar(true),'Voltar')">Zerar tudo</button>
+  <button class="btn" onclick="askConfirm('Carregar os dados de demonstração? Tudo que foi lançado será substituído.','Carregar demonstração',()=>{const c=S.config;S=seed();S.config.logo=c.logo||'';save();closeModal();go('painel');toast('Dados de demonstração carregados')},'Voltar')">Carregar demonstração</button></div></div></div>`};
+function vazio(){const b=seed();return{versao:1,seq:2000,exemplo:false,config:{...b.config,proxPedido:1,proxOrc:1,whatsapp:''},compras:[],carrinhos:[],estoqueProntos:{},producoes:[],insumos:[],receitas:[],produtos:[],clientes:[],pedidos:[],orcamentos:[],lancamentos:[]}}
+function zerar(tudo){
+ for(const k of['pedidos','orcamentos','clientes','lancamentos','compras','carrinhos','producoes'])S[k]=[];S.estoqueProntos={};S.exemplo=false;S.config.proxPedido=1;S.config.proxOrc=1;TK={itens:{},forma:'Pix',recebido:''};
+ if(tudo){S.insumos=[];S.receitas=[];S.produtos=[]}else for(const i of S.insumos)i.estoque=0;
+ save();closeModal();go('painel');toast(tudo?'Sistema zerado. Comece cadastrando insumos e produtos.':'Movimentações apagadas');
+}
 function salvarCfg(){const c=CFG();c.custoMetodo=$('#cf-custoMetodo').value;for(const k of['margemAlvo','margemMin','imposto','taxa','custoHora','indireto','capacidade','sinalPct','validade'])c[k]=num($('#cf-'+k).value);
  if(c.margemAlvo+c.imposto+c.taxa>=100)return toast('Margem, impostos e taxas somados precisam ficar abaixo de 100%.','bad');
  for(const k of['empresa','instagram','whatsapp','marca','marcaSub','pix','agradecimento'])c[k]=$('#cf-'+k).value.trim();save();render();toast('Configurações salvas')}
@@ -1916,7 +1925,7 @@ async function abrirLoja(id){
  _sync={};
  if(rows.length){const base=seed();S={versao:1,seq:2000,exemplo:false,config:{...base.config,logo:''},insumos:[],receitas:[],produtos:[],clientes:[],pedidos:[],orcamentos:[],lancamentos:[],compras:[],carrinhos:[],estoqueProntos:{},producoes:[]};
   for(const r of rows){aplicarChave(r.chave,r.valor);_sync[r.chave]=canon(r.valor)}cacheLocal()}
- else{S=seed();cacheLocal();await enviar()}
+ else{S=vazio();cacheLocal();await enviar()}
  if(_canal){try{sb.removeChannel(_canal)}catch(e){}}
  _canal=sb.channel('dados-'+LOJA).on('postgres_changes',{event:'*',schema:'public',table:'dados',filter:'loja_id=eq.'+LOJA},p=>{if(chegouRemoto(p.new))aposRemoto()}).subscribe();
  mostrarApp(true);go(location.hash.slice(1)||'painel');
