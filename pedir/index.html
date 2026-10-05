@@ -99,7 +99,7 @@ function cab(){const c=V||{};
  document.title='Faça seu pedido'+(c.marca?' · '+c.marca:'')}
 function card(p){const q=Q[p.id]||0;const est=p.tipo==='estacao';
  return`<div class="p ${q?'on':''}" id="p-${esc(p.id)}"><div class="ft">${fotoOk(p.foto)?`<img src="${p.foto}" alt="">`:esc((p.nome||'?').trim()[0]||'?').toUpperCase()}</div>
- <div><b>${esc(p.nome)}</b>${p.desc?`<span class="d">${esc(p.desc)}</span>`:''}
+ <div><b>${esc(p.nome)}</b>${p.desc?`<span class="d">${esc(p.desc)}</span>`:''}${!est&&p.min>1?`<span class="tag">Pedido mínimo: ${p.min} unidades</span>`:''}
  <div class="row"><span class="v">${est?'a partir de ':''}${brl(p.preco)}</span>
  ${est?`<button class="btn ${q?'sel':''}" data-est="${esc(p.id)}">${q?'Selecionado':'Quero orçamento'}</button>`
  :`<span class="qt"><button data-m="${esc(p.id)}" aria-label="Menos">−</button><input type="number" inputmode="numeric" min="0" max="5000" value="${q||''}" placeholder="0" data-q="${esc(p.id)}" aria-label="Quantidade de ${esc(p.nome)}"><button data-a="${esc(p.id)}" aria-label="Mais">+</button></span>`}</div></div></div>`}
@@ -121,9 +121,9 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-cat]');if(
 function barra(){const ne=sel('encomenda'),ns=sel('estacao');const n=ne.length+ns.length;$('#bar').hidden=!n;if(!n)return;
  const un=ne.reduce((s,p)=>s+Q[p.id],0);
  $('#bar-t').innerHTML=ne.length?`${un} ${un===1?'unidade':'unidades'}${ns.length?' + orçamento de estação':''}<b>${brl(total())}</b>`:`Orçamento de Estação Gourmet<b>${ns.length} ${ns.length===1?'pacote':'pacotes'}</b>`}
-function setQ(id,q){q=Math.max(0,Math.min(5000,Math.round(+q||0)));if(q)Q[id]=q;else delete Q[id];const p=prods().find(x=>x.id===id);const el=document.getElementById('p-'+id);if(p&&el){const foco=document.activeElement&&document.activeElement.dataset.q===id;el.outerHTML=card(p);if(foco){const i=document.querySelector(`[data-q="${CSS.escape(id)}"]`);if(i){i.focus();const v=i.value;i.value='';i.value=v}}}barra()}
+function setQ(id,q,dir){q=Math.max(0,Math.min(5000,Math.round(+q||0)));const pm=prods().find(x=>x.id===id);const mn=pm&&pm.tipo!=='estacao'?(+pm.min||0):0;if(mn>1&&q>0&&q<mn)q=dir<0?0:mn;if(q)Q[id]=q;else delete Q[id];const p=prods().find(x=>x.id===id);const el=document.getElementById('p-'+id);if(p&&el){const foco=document.activeElement&&document.activeElement.dataset.q===id;el.outerHTML=card(p);if(foco){const i=document.querySelector(`[data-q="${CSS.escape(id)}"]`);if(i){i.focus();const v=i.value;i.value='';i.value=v}}}barra()}
 document.addEventListener('click',e=>{const t=e.target.closest('[data-a],[data-m],[data-est]');if(!t)return;
- if(t.dataset.a)setQ(t.dataset.a,(Q[t.dataset.a]||0)+1);else if(t.dataset.m)setQ(t.dataset.m,(Q[t.dataset.m]||0)-1);else setQ(t.dataset.est,Q[t.dataset.est]?0:1)});
+ if(t.dataset.a)setQ(t.dataset.a,(Q[t.dataset.a]||0)+1,1);else if(t.dataset.m)setQ(t.dataset.m,(Q[t.dataset.m]||0)-1,-1);else setQ(t.dataset.est,Q[t.dataset.est]?0:1)});
 document.addEventListener('change',e=>{if(e.target.dataset&&e.target.dataset.q)setQ(e.target.dataset.q,e.target.value)});
 $('#bar-b').onclick=form;
 function hojeISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
@@ -152,6 +152,7 @@ async function enviar(){if(enviando)return;const ne=sel('encomenda'),ns=sel('est
  if(fone.replace(/\D/g,'').length<10)return erro('Informe o seu WhatsApp com DDD.');
  if(!data)return erro('Informe a data desejada.');
  if(ne.length&&MODO==='entrega'&&$('#f-end').value.trim().length<5)return erro('Informe o endereço de entrega.');
+ const curto=ne.find(p=>(+p.min||0)>1&&Q[p.id]<p.min);if(curto)return erro(`O pedido mínimo de ${curto.nome} é de ${curto.min} unidades.`);
  if($('#f-site').value)return fim(); /* campo invisível: só robôs preenchem */
  const base={nome,fone,data,hora,obs};const linhas=[];
  if(ne.length)linhas.push({loja_id:LOJA,dados:{...base,tipo:'encomenda',modo:MODO,endereco:MODO==='entrega'?$('#f-end').value.trim():'',itens:ne.map(p=>({p:p.id,nome:p.nome,q:Q[p.id],v:p.preco})),total:+total().toFixed(2)}});
