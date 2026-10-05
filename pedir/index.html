@@ -82,7 +82,7 @@ textarea{min-height:76px;resize:vertical}
 .pl img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:2px}
 .pl span{position:absolute;left:0;right:0;bottom:4px;font-family:Caveat,cursive;font-size:19px;color:#6b5a4a}
 .pl.tape::before{content:"";position:absolute;top:-10px;left:50%;width:64px;height:20px;margin-left:-32px;background:rgba(240,190,190,.75);transform:rotate(-3deg)}
-.pl.g{width:190px}.r1{transform:rotate(-4deg)}.r2{transform:rotate(3deg)}.r3{transform:rotate(-2deg)}.r4{transform:rotate(5deg)}
+.pl.alto img{aspect-ratio:3/4}.pl.g{width:190px}.r1{transform:rotate(-4deg)}.r2{transform:rotate(3deg)}.r3{transform:rotate(-2deg)}.r4{transform:rotate(5deg)}
 .marco{background:#fff;border:1.5px dashed var(--gold);border-radius:22px;padding:18px 16px;margin:24px auto;max-width:420px}
 .marco .dt{font-family:Caveat,cursive;font-size:34px;color:var(--gold-d);line-height:1}
 .time{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:14px 0}
@@ -167,8 +167,10 @@ function sobre(){const pl=(f,t,c)=>`<figure class="pl ${c}"><img src="${FT}${f}.
  <div>${pl('maos','feito à mão','g tape r1')}</div>
  <p>Antes de ser marca, era só <b>"um docinho"</b>. Poucas encomendas, feitas por mim, sozinha, na minha cozinha.</p>
  <p>Eu tentei outros caminhos, mas a confeitaria sempre me encontrava de novo. Então mergulhei de vez: estudei, me especializei e passei a entregar muito mais do que um bolinho.</p>
- <div>${pl('brigadeiros','cada receita','r2')}${pl('caixa','cada embalagem','r3')}</div>
+ <div>${pl('est-pipoca','pipoca quentinha','alto r1')}${pl('est-brigadeiro','brigadeiro no tacho','alto r2')}</div>
+ <div class="kick" style="letter-spacing:.18em;margin-top:4px">hoje a Sweet Ka vai até a sua festa</div>
  <div class="big">Cada receita carrega cuidado.<br>Cada embalagem carrega carinho.</div>
+ <div>${pl('brigadeiros','cada receita','r2')}${pl('caixa','cada embalagem','r3')}</div>
  <div class="marco"><div class="dt">Fevereiro de 2024</div><p style="margin:8px auto 0">Tomei a decisão mais difícil e mais verdadeira da minha vida: viver daquilo que faz meu coração bater mais forte.</p></div>
  <div>${pl('sereia','sonhos de festa','r4')}${pl('pirulitos','um por um','r1')}</div>
  <p>Hoje não faço mais nada sozinha. Deus me deu uma equipe, que me apoia sem medir esforços e é o meu braço direito:</p>
