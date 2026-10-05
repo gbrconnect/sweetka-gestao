@@ -690,7 +690,8 @@ const capLim=()=>modOn('capacidade')?CFG().capacidade:Infinity;
 const FRENTES={carrinho:'Carrinho',estacao:'Estação Gourmet',encomenda:'Encomendas'};
 const FR_CURTO={carrinho:'Carrinho',estacao:'Estação',encomenda:'Encomenda'};
 const frenteDe=o=>o&&o.frente==='estacao'?'estacao':'encomenda';
-const naFrente=(p,f)=>!p.frentes||!p.frentes.length||p.frentes.includes(f);
+const frentesDe=p=>p.frentes&&p.frentes.length?p.frentes:[/esta[cç][aã]o/i.test(p.cat||'')?'estacao':/encomenda|evento|kit|adiciona/i.test(p.cat||'')?'encomenda':'carrinho'];
+const naFrente=(p,f)=>frentesDe(p).includes(f);
 const STE={...STP,entregue:'Realizado'};
 const pillP=p=>pill(p.status,frenteDe(p)==='estacao'?STE:STP);
 const proxDe=p=>frenteDe(p)==='estacao'?({aguardando_sinal:['confirmado','Confirmar'],confirmado:['entregue','Marcar realizado'],producao:['entregue','Marcar realizado'],pronto:['entregue','Marcar realizado']})[p.status]:PROX[p.status];
@@ -812,7 +813,7 @@ let SITE=[],_vit='',SITE_OK=false;const SLUG_SITE='sweetka';
 const siteNovos=()=>SITE.filter(x=>x.status==='novo');
 function siteBanner(){const n=siteNovos().length;return n?`<div class="car-banner" style="margin-bottom:12px"><div><div class="t">${n} pedido${n>1?'s':''} novo${n>1?'s':''} pelo site</div><div class="s">Abra para aceitar ou recusar. Ao aceitar, ele entra na agenda.</div></div><button class="btn" onclick="go('online')">${ico('online')}Ver pedidos</button></div>`:''}
 function vitrineDados(){const c=CFG();
- const ps=S.produtos.filter(p=>p.ativo!==false).map(p=>{const fs=p.frentes||[];if(fs.length&&!fs.includes('encomenda')&&!fs.includes('estacao'))return null;const tipo=fs.includes('estacao')&&!fs.includes('encomenda')?'estacao':'encomenda';if(tipo==='estacao'?p.catalogo===false:!noCatalogo(p))return null;return{id:p.id,nome:p.nome,desc:p.desc||'',preco:+p.preco||0,foto:p.foto||'',cat:p.cat||'',tipo,min:Math.max(0,Math.round(+p.minimo||0))}}).filter(Boolean);
+ const ps=S.produtos.filter(p=>p.ativo!==false).map(p=>{const fs=frentesDe(p);if(fs.length&&!fs.includes('encomenda')&&!fs.includes('estacao'))return null;const tipo=fs.includes('estacao')&&!fs.includes('encomenda')?'estacao':'encomenda';if(tipo==='estacao'?p.catalogo===false:!noCatalogo(p))return null;return{id:p.id,nome:p.nome,desc:p.desc||'',preco:+p.preco||0,foto:p.foto||'',cat:p.cat||'',tipo,min:Math.max(0,Math.round(+p.minimo||0))}}).filter(Boolean);
  return{marca:c.marca||c.empresa||'',sub:c.marcaSub??'CONFEITARIA',logo:c.logo||'',whatsapp:c.whatsapp||'',instagram:c.instagram||'',produtos:ps}}
 async function publicarVitrine(){if(!NUVEM||!LOJA||!SITE_OK)return;const d=vitrineDados(),t=canon(d);if(t===_vit)return;try{const r=await sb.from('vitrine').upsert([{loja_id:LOJA,slug:SLUG_SITE,dados:d,atualizado_em:new Date().toISOString()}]);if(!r.error)_vit=t}catch(e){}}
 async function carregarSite(){if(!NUVEM||!LOJA)return;try{const r=await sb.from('pedidos_site').select('id,criado_em,status,dados').eq('loja_id',LOJA).order('criado_em',{ascending:false}).limit(60);if(r.error)return;const era=SITE_OK;SITE_OK=true;const a=canon(SITE.map(x=>[x.id,x.status]));SITE=r.data||[];if(!era||canon(SITE.map(x=>[x.id,x.status]))!==a){if($('#modal-root').innerHTML)_remoto=true;else render()}}catch(e){}}
@@ -933,7 +934,7 @@ function carResumo(c){
  let custo=0,mat=0,mo=0;for(const r of rows){const k=custoProduto(getProd(r.p));const q=r.vend+((c.perdas||{})[r.p]||0);custo+=q*k.total;mat+=q*(k.mat+k.ind);mo+=q*k.mo}
  const taxas=taxasVendas(c.vendas);const rp=c.vendas.reduce((s,v)=>s+repItens(v.itens),0);return{rows,total,rep:rp,rec:total-rp,porForma,saiu,vend,custo,mat,mo,taxas,lucro:(total-rp)*(1-CFG().imposto/100)-taxas-custo};
 }
-function candidatosCarrinho(){return S.produtos.filter(p=>p.ativo!==false&&(p.frentes&&p.frentes.length?p.frentes.includes('carrinho'):!['Eventos','Adicionais','Kits e caixas'].includes(p.cat)))}
+function candidatosCarrinho(){return S.produtos.filter(p=>p.ativo!==false&&naFrente(p,'carrinho'))}
 function ultimoCarrinho(){return [...(S.carrinhos||[])].filter(c=>c.status==='fechado').sort((a,b)=>b.abertura.localeCompare(a.abertura))[0]}
 function duracao(a,b){const[ha,ma]=a.slice(11,16).split(':').map(Number),[hb,mb]=b.slice(11,16).split(':').map(Number);let m=(hb*60+mb)-(ha*60+ma)+difDias(a.slice(0,10),b.slice(0,10))*1440;return`${Math.floor(m/60)}h${String(m%60).padStart(2,'0')}`}
 let TK={itens:{},forma:'Pix',recebido:''};
@@ -1612,8 +1613,8 @@ function abrirProduto(id){
  <label class="chk"><input type="checkbox" id="pr-rep" ${EP.repasse?'checked':''} onchange="$('#pr-parc-w').hidden=!this.checked"> Produto de repasse (feito por outra pessoa; o valor vendido não é receita da loja)</label>
  <label class="f" id="pr-parc-w" ${EP.repasse?'':'hidden'} style="margin-top:8px">Repassar para<input type="text" id="pr-parc" list="pr-parcs" value="${esc(EP.parceiro||'')}" placeholder="Nome de quem produz"><datalist id="pr-parcs">${[...new Set(S.produtos.map(p=>p.parceiro).filter(Boolean))].map(n=>`<option value="${esc(n)}">`).join('')}</datalist><small>As vendas deste produto ficam fora do faturamento e da margem, e aparecem em Financeiro, na aba Repasses. O custo informado abaixo é ignorado.</small></label>
  <div class="sec">Vende em</div>
- <div style="display:flex;gap:16px;flex-wrap:wrap">${Object.entries(FRENTES).map(([k,l])=>`<label class="chk"><input type="checkbox" id="pr-fr-${k}" ${(EP.frentes||[]).includes(k)?'checked':''}> ${l}</label>`).join('')}</div>
- <div class="small muted" style="margin-top:4px">Marque onde este produto ou serviço é vendido. Sem nenhuma marcada, ele aparece nas três frentes.</div>
+ <div style="display:flex;gap:16px;flex-wrap:wrap">${Object.entries(FRENTES).map(([k,l])=>`<label class="chk"><input type="checkbox" id="pr-fr-${k}" ${(EP.nome?frentesDe(EP):(EP.frentes||[])).includes(k)?'checked':''}> ${l}</label>`).join('')}</div>
+ <div class="small muted" style="margin-top:4px">Marque onde este produto ou serviço é vendido. Ele só aparece nas frentes marcadas. Sem nenhuma marcada, o sistema decide pela categoria.</div>
  <div class="sec">Como informar o custo</div>
  <div class="tabs" style="margin-bottom:0"><button id="pr-m-manual" class="${man?'on':''}" onclick="prModo('manual')">Custo manual</button><button id="pr-m-ficha" class="${man?'':'on'}" ${modOn('ficha')||!man?'':'hidden'} onclick="prModo('ficha')">Ficha técnica</button></div>
  <div id="pr-manual" ${man?'':'hidden'}><div class="frow"><label class="f">Custo por unidade (R$)<input type="text" inputmode="decimal" id="pr-custo" value="${n2(EP.custoManual||0)}" oninput="prUpd()"></label></div>
@@ -1987,7 +1988,7 @@ EXP.orcamentos=()=>{const L=[...S.orcamentos].sort((a,b)=>b.criado.localeCompare
 EXP.clientes=()=>({titulo:'Clientes',kpis:[['Clientes cadastradas',S.clientes.length,'num']],tabelas:[{nome:'Clientes',cols:[['Nome','txt'],['WhatsApp','txt'],['Observações','txt'],['Pedidos','num'],['Total comprado','brl'],['Último pedido','txt']],
  rows:[...S.clientes].sort((a,b)=>a.nome.localeCompare(b.nome)).map(c=>{const ps=S.pedidos.filter(p=>p.cliente===c.id&&p.status!=='cancelado');const u=ps.map(p=>p.dataEntrega).sort().pop();return[c.nome,c.fone||'',c.obs||'',ps.length,ps.reduce((s,p)=>s+totaisDoc(p).total,0),u?dBR(u):'']})}]});
 EXP.produtos=()=>({titulo:'Produtos e preços',kpis:[['Produtos ativos',S.produtos.filter(p=>p.ativo!==false).length,'num']],tabelas:[{nome:'Produtos',cols:[['Produto','txt'],['Categoria','txt'],['Vende em','txt'],['Repasse para','txt'],['Custo','brl'],['Preço','brl'],['Margem','pct'],['Preço sugerido','brl'],['No catálogo','txt'],['Ativo','txt']],
- rows:S.produtos.map(p=>{const c=custoProduto(p);return[p.nome,p.cat||'',(p.frentes||[]).map(f=>FR_CURTO[f]).join(', ')||'Todas',p.repasse?(p.parceiro||'Parceiro'):'',c.total,p.preco,p.repasse?0:margem(p.preco,c.total),p.repasse?0:precoSugerido(c.total),noCatalogo(p)?'Sim':'Não',p.ativo!==false?'Sim':'Não']})}]});
+ rows:S.produtos.map(p=>{const c=custoProduto(p);return[p.nome,p.cat||'',frentesDe(p).map(f=>FR_CURTO[f]).join(', '),p.repasse?(p.parceiro||'Parceiro'):'',c.total,p.preco,p.repasse?0:margem(p.preco,c.total),p.repasse?0:precoSugerido(c.total),noCatalogo(p)?'Sim':'Não',p.ativo!==false?'Sim':'Não']})}]});
 EXP.insumos=()=>({titulo:'Insumos e estoque',tabelas:[{nome:'Insumos',cols:[['Insumo','txt'],['Categoria','txt'],['Unidade','txt'],['Estoque','num'],['Mínimo','num'],['Custo por unidade','brl'],['Valor em estoque','brl'],['Fornecedor','txt']],rows:S.insumos.map(i=>[i.nome,i.cat||'',i.un||'',i.estoque||0,i.minimo||0,custoUnitIns(i),(i.estoque||0)*custoUnitIns(i),i.fornecedor||''])}]});
 EXP.agenda=()=>{const k=UI.agMes||hoje().slice(0,7);const L=S.pedidos.filter(p=>p.status!=='cancelado'&&p.dataEntrega.slice(0,7)===k).sort((a,b)=>(a.dataEntrega+a.hora).localeCompare(b.dataEntrega+b.hora));
  return{titulo:'Agenda',sub:mesLabel(k),kpis:[['Pedidos no mês',L.length,'num']],tabelas:[{nome:'Agenda',cols:[['Data','txt'],['Dia','txt'],['Hora','txt'],['Frente','txt'],['Cliente','txt'],['Ocasião','txt'],['Situação','txt'],['Itens','txt'],['Total','brl']],rows:L.map(p=>[dBR(p.dataEntrega),SEMLONGO[toDate(p.dataEntrega).getDay()],p.hora,FR_CURTO[frenteDe(p)],nomeCli(p.cliente),p.titulo||'',(frenteDe(p)==='estacao'?STE:STP)[p.status],p.itens.map(x=>`${nq(x.q)} ${(getProd(x.p)||{}).nome||'?'}`).join('; '),totaisDoc(p).total])}]}};
