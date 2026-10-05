@@ -89,6 +89,9 @@ textarea{min-height:76px;resize:vertical}
 .time span{background:#FBEFEF;border:1px solid #EFD0D0;color:#8a4d4d;font-weight:700;font-size:13.5px;padding:7px 14px;border-radius:999px}
 .fim{background:linear-gradient(135deg,#FBEFEF,#F4ECDD);border-radius:24px;padding:22px 16px;margin:26px 0 8px}
 .cor{color:#D4686F}
+.eu{width:190px;height:190px;border-radius:50%;margin:18px auto 8px;padding:6px;background:linear-gradient(135deg,#F3C9C9,#E2C48A);box-shadow:0 8px 22px rgba(60,40,20,.18)}
+.eu img{width:100%;height:100%;border-radius:50%;object-fit:cover;border:4px solid #fff;display:block}
+.oi{font-family:Caveat,cursive;font-size:34px;line-height:1.1;color:var(--ink)}
 .catb .go.sm{font-size:13px;font-weight:700;color:var(--gold-d);white-space:nowrap}
 .tag{display:inline-block;margin-top:6px;background:var(--soft);color:var(--gold-d);font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px}
 .back{font:inherit;font-weight:700;font-size:15px;color:var(--gold-d);background:var(--card);border:1.5px solid var(--gold);border-radius:999px;padding:10px 18px;margin-top:14px;cursor:pointer;position:sticky;top:8px;z-index:5;box-shadow:0 2px 10px rgba(0,0,0,.08)}
@@ -137,7 +140,7 @@ function lista(){const cs=cats();
  if(cs.length===1)VIEW=cs[0][0];
  if(VIEW==null||!cs.find(c=>c[0]===VIEW)){VIEW=null;
   $('#main').innerHTML=`<h2>O que você procura?</h2><p class="h2s">Escolha uma categoria para ver os produtos.</p><div class="cats">${cs.map(([k,ps],i)=>{const f=ps.find(x=>fotoOk(x.foto));const n=ps.filter(x=>Q[x.id]>0).length;
-   return`<button class="catb" data-cat="${i}"><span class="ft">${f?`<img src="${f.foto}" alt="">`:esc(nomeCat(k).trim()[0]||'?').toUpperCase()}</span><span class="ct"><b>${esc(nomeCat(k))}</b><span class="d">${k===EST?'A estação vai até a sua festa. Peça um orçamento.':ps.length+(ps.length===1?' produto':' produtos')}</span>${n?`<span class="tag">${n} no pedido</span>`:''}</span><span class="go">›</span></button>`}).join('')}</div><button class="sobre-b" id="sobre-b"><span class="pl"><img src="${FT}maos.jpg" alt=""></span><span><b>Conheça a Sweet Ka</b><span class="d">A história por trás de cada docinho</span></span><span class="go" style="font-size:26px;color:var(--gold)">›</span></button>`;
+   return`<button class="catb" data-cat="${i}"><span class="ft">${f?`<img src="${f.foto}" alt="">`:esc(nomeCat(k).trim()[0]||'?').toUpperCase()}</span><span class="ct"><b>${esc(nomeCat(k))}</b><span class="d">${k===EST?'A estação vai até a sua festa. Peça um orçamento.':ps.length+(ps.length===1?' produto':' produtos')}</span>${n?`<span class="tag">${n} no pedido</span>`:''}</span><span class="go">›</span></button>`}).join('')}</div><button class="sobre-b" id="sobre-b"><span class="pl"><img src="${FT}kath.jpg" alt=""></span><span><b>Conheça a Sweet Ka</b><span class="d">A história por trás de cada docinho</span></span><span class="go" style="font-size:26px;color:var(--gold)">›</span></button>`;
   $('#sobre-b').onclick=sobre;barra();return}
  const ps=cs.find(c=>c[0]===VIEW)[1];const est=VIEW===EST;
  const gm=new Map();for(const p of ps){const g=(p.grupo||'').trim();if(g){if(!gm.has(g))gm.set(g,[]);gm.get(g).push(p)}}
@@ -159,7 +162,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-cat]');if(
 const FT='../fotos/sobre-';
 function sobre(){const pl=(f,t,c)=>`<figure class="pl ${c}"><img src="${FT}${f}.jpg" alt="${t}" loading="lazy"><span>${t}</span></figure>`;window.scrollTo(0,0);
  $('#main').innerHTML=`<button class="back" data-vs>‹ Voltar para o cardápio</button><div class="sb">
- <div class="kick" style="margin-top:22px">Conheça a Sweet Ka</div><h1>A nossa história</h1><div class="hr">♥ ♥ ♥</div>
+ <div class="kick" style="margin-top:22px">Conheça a Sweet Ka</div><h1>A nossa história</h1><div class="eu"><img src="${FT}kath.jpg" alt="Kath, da Sweet Ka"></div><div class="oi">Oi, eu sou a Kath <span class="cor">♥</span></div><div class="kick" style="letter-spacing:.18em">quem faz a Sweet Ka acontecer</div><div class="hr">♥ ♥ ♥</div>
  <div class="big">A Sweet Ka nasceu no coração de Deus.</div>
  <div>${pl('maos','feito à mão','g tape r1')}</div>
  <p>Antes de ser marca, era só <b>"um docinho"</b>. Poucas encomendas, feitas por mim, sozinha, na minha cozinha.</p>
