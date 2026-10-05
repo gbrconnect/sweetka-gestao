@@ -719,7 +719,7 @@ const PAGES=[
  {id:'config',label:'Configurações',g:'Gestão'},
 ];
 let PAGE='painel';
-const UI={pedFiltro:'ativos',pedBusca:'',orcFiltro:'ativos',agDias:14,compDias:7,compInclAg:true,prodCat:'Todos',prodBusca:'',insBusca:'',insCat:'Todos',cliBusca:'',finMes:null,finTab:'resumo',relPer:'mes',simIns:'i4',simPct:15};
+const UI={pedFiltro:'ativos',pedBusca:'',orcFiltro:'ativos',orcBusca:'',agDias:14,compDias:7,compInclAg:true,prodCat:'Todos',prodBusca:'',insBusca:'',insCat:'Todos',cliBusca:'',finMes:null,finTab:'resumo',relPer:'mes',simIns:'i4',simPct:15};
 
 function badges(){
  const al=alertas();
@@ -1264,7 +1264,7 @@ function delPagamento(id,i){askConfirm('Excluir este pagamento?','Excluir',()=>{
 
 /* ============ ORÇAMENTOS ============ */
 R.orcamentos=()=>{
- const f=UI.orcFiltro;let L=S.orcamentos.filter(o=>f==='todos'?true:f==='ativos'?['aberto','enviado'].includes(o.status):o.status===f);
+ const f=UI.orcFiltro;let L=S.orcamentos.filter(o=>f==='todos'?true:f==='ativos'?['aberto','enviado'].includes(o.status):o.status===f);const ob=UI.orcBusca.toLowerCase();if(ob)L=L.filter(o=>(`${o.num} ${nomeCli(o.cliente)} ${o.titulo||''} ${o.aniversariante||''}`).toLowerCase().includes(ob));
  L.sort((a,b)=>b.criado.localeCompare(a.criado));
  const conv=S.orcamentos.filter(o=>o.status==='aprovado').length,decid=S.orcamentos.filter(o=>['aprovado','recusado'].includes(o.status)).length;
  const aberto=S.orcamentos.filter(o=>['aberto','enviado'].includes(o.status)).reduce((s,o)=>s+totaisDoc(o).total,0);
@@ -1274,6 +1274,7 @@ R.orcamentos=()=>{
   <div class="card kpi"><div class="l">Taxa de aprovação</div><div class="v num">${decid?pct(conv/decid):'sem dados'}</div><div class="d">${conv} de ${decid} respondidos</div></div>
   <div class="card kpi"><div class="l">Validade padrão</div><div class="v num">${CFG().validade} dias</div><div class="d">ajuste em Configurações</div></div></div>
  <div class="chips" style="margin-bottom:14px">${[['ativos','Em aberto e enviados'],['aprovado','Aprovados'],['recusado','Recusados'],['todos','Todos']].map(([k,v])=>`<button class="chip ${f===k?'on':''}" onclick="UI.orcFiltro='${k}';render()">${v}</button>`).join('')}</div>
+ <div class="toolbar"><input type="search" class="search" id="orc-busca" placeholder="Buscar por cliente, tema ou número" value="${esc(UI.orcBusca)}" oninput="UI.orcBusca=this.value;rerenderKeep('orc-busca')"></div>
  ${L.length?`<div class="list">${L.map(o=>{const t=totaisDoc(o);const dd=difDias(hoje(),o.validade);const dt=toDate(o.dataEntrega);
   return`<button class="item" onclick="verOrc('${o.id}')"><div class="date"><b>${String(dt.getDate()).padStart(2,'0')}</b><span>${SEM[dt.getDay()]} ${MESC[dt.getMonth()]}</span></div>
   <div style="min-width:0"><div class="t">#${o.num} · ${esc(nomeCli(o.cliente))}</div><div class="s">${frenteDe(o)==='estacao'?'Estação · ':''}${esc(o.titulo)}</div><div class="s">${['aberto','enviado'].includes(o.status)?(dd<0?'Vencido':`Válido até ${dCurto(o.validade)}`):`Criado em ${dCurto(o.criado)}`} · margem ${pct(t.margem)}</div></div>
