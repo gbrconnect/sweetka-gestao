@@ -630,8 +630,10 @@ const getProd=id=>S.produtos.find(x=>x.id===id);
 const getCli=id=>S.clientes.find(x=>x.id===id);
 function custoUnitIns(i,ov){const f=ov&&ov[i.id]?ov[i.id]:1;return i.qtdEmb>0?i.precoEmb/i.qtdEmb*f:0}
 function custoReceita(r,ov){let t=0;for(const g of r.itens){const i=getIns(g.id);if(i)t+=g.qtd*custoUnitIns(i,ov)}const util=r.rendimento*(1-(r.perda||0)/100);return{total:t,porG:util>0?t/util:0,util}}
+const ehRep=id=>!!((getProd(id)||{}).repasse);
+const repItens=its=>(its||[]).reduce((s,x)=>s+(ehRep(x.p)?x.q*x.v:0),0);
 function custoProduto(p,ov,depth=0){
- let mat=0,mo=0;if(!p||depth>6)return{mat:0,mo:0,ind:0,total:0};
+ let mat=0,mo=0;if(!p||depth>6||p.repasse)return{mat:0,mo:0,ind:0,total:0};
  if(p.modoCusto==='manual'){const c=+p.custoManual||0;return{mat:c,mo:0,ind:0,total:c}}
  for(const it of p.itens||[]){
   if(it.t==='i'){const i=getIns(it.id);if(i)mat+=it.q*custoUnitIns(i,ov)}
@@ -666,8 +668,8 @@ function totaisDoc(o){
  const sub=o.itens.reduce((s,x)=>s+x.q*x.v,0);const total=Math.max(0,sub-(o.desconto||0)+(o.frete||0));
  let custo=0,mat=0,mo=0,un=0;for(const x of o.itens){const c=custoProduto(getProd(x.p));custo+=x.q*c.total;mat+=x.q*(c.mat+c.ind);mo+=x.q*c.mo;un+=o.frente==='estacao'?0:unidadesCap(x.p,x.q)}
  const pago=(o.pagamentos||[]).reduce((s,x)=>s+x.valor,0);
- const liq=total*(1-deducoes());
- return{sub,total,custo,mat,mo,un,pago,saldo:+(total-pago).toFixed(2),lucro:liq-custo,margem:total>0?(liq-custo)/total:0};
+ const rp=Math.min(total,repItens(o.itens)),rec=total-rp;const liq=rec*(1-deducoes());
+ return{rep:rp,rec,sub,total,custo,mat,mo,un,pago,saldo:+(total-pago).toFixed(2),lucro:liq-custo,margem:rec>0?(liq-custo)/rec:0};
 }
 
 /* ============ status ============ */
@@ -691,7 +693,7 @@ const STE={...STP,entregue:'Realizado'};
 const pillP=p=>pill(p.status,frenteDe(p)==='estacao'?STE:STP);
 const proxDe=p=>frenteDe(p)==='estacao'?({aguardando_sinal:['confirmado','Confirmar'],confirmado:['entregue','Marcar realizado'],producao:['entregue','Marcar realizado'],pronto:['entregue','Marcar realizado']})[p.status]:PROX[p.status];
 function linhaPed(p,t){return frenteDe(p)==='estacao'?`Estação · ${p.hora}${p.duracao?` · ${nq(p.duracao)}h`:''}${p.convidados?` · ${nq(p.convidados)} convidados`:''}`:`${p.hora} · ${p.modo==='entrega'?'entrega':'retirada'} · ${nq(t.un)} doces`}
-function recFrente(k){const r={carrinho:carrinhoMes(k).rec,estacao:0,encomenda:0};for(const p of S.pedidos)if(p.status==='entregue'&&p.dataEntrega.slice(0,7)===k)r[frenteDe(p)]+=totaisDoc(p).total;return r}
+function recFrente(k){const r={carrinho:carrinhoMes(k).rec,estacao:0,encomenda:0};for(const p of S.pedidos)if(p.status==='entregue'&&p.dataEntrega.slice(0,7)===k)r[frenteDe(p)]+=totaisDoc(p).rec;return r}
 function chipsFrente(key){const v=UI[key]||'tudo';return`<div class="chips" style="margin-bottom:16px">${[['tudo','Tudo'],['carrinho','Carrinho'],['estacao','Estação Gourmet'],['encomenda','Encomendas']].map(([k,l])=>`<button class="chip ${v===k?'on':''}" onclick="UI.${key}='${k}';render()">${l}</button>`).join('')}</div>`}
 
 /* ============ navegação ============ */
@@ -743,7 +745,7 @@ function head(t,sub,acts=''){return`<div class="pagehead"><div><h1>${t}</h1>${su
 /* ============ alertas ============ */
 function alertas(){
  const a=[];const T=hoje();
- for(const p of S.produtos.filter(p=>p.ativo!==false)){const c=custoProduto(p);const m=margem(p.preco,c.total);if(m<CFG().margemMin/100)a.push({fin:true,lvl:'bad',txt:`<b>${esc(p.nome)}</b> está com margem de ${pct(m)}, abaixo do mínimo de ${CFG().margemMin}%. Preço sugerido: ${brl(precoSugerido(c.total))}.`,go:`abrirProduto('${p.id}')`})}
+ for(const p of S.produtos.filter(p=>p.ativo!==false&&!p.repasse)){const c=custoProduto(p);const m=margem(p.preco,c.total);if(m<CFG().margemMin/100)a.push({fin:true,lvl:'bad',txt:`<b>${esc(p.nome)}</b> está com margem de ${pct(m)}, abaixo do mínimo de ${CFG().margemMin}%. Preço sugerido: ${brl(precoSugerido(c.total))}.`,go:`abrirProduto('${p.id}')`})}
  for(const [dia,u] of Object.entries(cargaPorDia(T,addDias(T,30))))if(u>capLim())a.push({lvl:'bad',txt:`${SEMLONGO[toDate(dia).getDay()]}, ${dCurto(dia)}: ${nq(u)} doces para produzir, acima da capacidade de ${CFG().capacidade}/dia.`,go:`go('agenda')`});
  if(modOn('estoque'))for(const i of S.insumos)if(i.estoque<i.minimo)a.push({lvl:'warn',txt:`Estoque baixo de <b>${esc(i.nome)}</b>: ${nq(i.estoque)} ${i.un} (mínimo ${nq(i.minimo)}).`,go:`go('compras')`});
  for(const p of S.pedidos)if(p.status==='aguardando_sinal'&&difDias(T,p.dataEntrega)<=7)a.push({lvl:'warn',txt:`Pedido #${p.num} (${esc(nomeCli(p.cliente))}) é para ${dCurto(p.dataEntrega)} e ainda não tem sinal.`,go:`verPedido('${p.id}')`});
@@ -764,7 +766,7 @@ function lembretes(){
 
 /* ============ PAINEL ============ */
 const R={};
-function receitaMes(k){return carrinhoMes(k).rec+S.pedidos.filter(p=>p.status==='entregue'&&p.dataEntrega.slice(0,7)===k).reduce((s,p)=>s+totaisDoc(p).total,0)}
+function receitaMes(k){return carrinhoMes(k).rec+S.pedidos.filter(p=>p.status==='entregue'&&p.dataEntrega.slice(0,7)===k).reduce((s,p)=>s+totaisDoc(p).rec,0)}
 R.painel=()=>{
  const T=hoje(),k=T.slice(0,7);
  const h=new Date().getHours();const saud=h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';
@@ -865,8 +867,8 @@ const c_vendas=c=>c.vendas.length;
 R.painelFin=()=>{
  const T=hoje(),k=T.slice(0,7),kp=addMes(k,-1);
  const fr=UI.finFr||'tudo';const inFr=p=>fr!=='carrinho'&&(fr==='tudo'||frenteDe(p)===fr);
- const resF=kk=>{let rec=0,luc=0;for(const p of S.pedidos)if(p.status==='entregue'&&p.dataEntrega.slice(0,7)===kk&&inFr(p)){const t=totaisDoc(p);rec+=t.total;luc+=t.lucro}
-  if(fr==='tudo'||fr==='carrinho')for(const c of S.carrinhos||[])if(c.abertura.slice(0,7)===kk){const r=carResumo(c);rec+=r.total;luc+=r.lucro}return{rec,luc}};
+ const resF=kk=>{let rec=0,luc=0;for(const p of S.pedidos)if(p.status==='entregue'&&p.dataEntrega.slice(0,7)===kk&&inFr(p)){const t=totaisDoc(p);rec+=t.rec;luc+=t.lucro}
+  if(fr==='tudo'||fr==='carrinho')for(const c of S.carrinhos||[])if(c.abertura.slice(0,7)===kk){const r=carResumo(c);rec+=r.rec;luc+=r.lucro}return{rec,luc}};
  const{rec,luc}=resF(k);const recAnt=resF(kp).rec;const varr=recAnt>0?(rec-recAnt)/recAnt:0;
  const receber=S.pedidos.filter(p=>inFr(p)&&p.status!=='cancelado'&&totaisDoc(p).saldo>0.009).sort((a,b)=>a.dataEntrega.localeCompare(b.dataEntrega));
  const aReceber=receber.reduce((s,p)=>s+totaisDoc(p).saldo,0);
@@ -927,7 +929,7 @@ function carResumo(c){
  const total=c.vendas.reduce((s,v)=>s+v.total,0);const porForma={};for(const f of FORMAS_CAR)porForma[f]=0;c.vendas.forEach(v=>{const k=formaCar(v.forma);porForma[k]=(porForma[k]||0)+v.total});
  const saiu=rows.reduce((s,r)=>s+r.saiu,0),vend=rows.reduce((s,r)=>s+r.vend,0);
  let custo=0,mat=0,mo=0;for(const r of rows){const k=custoProduto(getProd(r.p));const q=r.vend+((c.perdas||{})[r.p]||0);custo+=q*k.total;mat+=q*(k.mat+k.ind);mo+=q*k.mo}
- const taxas=taxasVendas(c.vendas);return{rows,total,porForma,saiu,vend,custo,mat,mo,taxas,lucro:total*(1-CFG().imposto/100)-taxas-custo};
+ const taxas=taxasVendas(c.vendas);const rp=c.vendas.reduce((s,v)=>s+repItens(v.itens),0);return{rows,total,rep:rp,rec:total-rp,porForma,saiu,vend,custo,mat,mo,taxas,lucro:(total-rp)*(1-CFG().imposto/100)-taxas-custo};
 }
 function candidatosCarrinho(){return S.produtos.filter(p=>p.ativo!==false&&(p.frentes&&p.frentes.length?p.frentes.includes('carrinho'):!['Eventos','Adicionais','Kits e caixas'].includes(p.cat)))}
 function ultimoCarrinho(){return [...(S.carrinhos||[])].filter(c=>c.status==='fechado').sort((a,b)=>b.abertura.localeCompare(a.abertura))[0]}
@@ -939,7 +941,7 @@ R.carrinho=()=>{
  if(!c){
   const hist=[...(S.carrinhos||[])].filter(x=>x.status==='fechado').sort((a,b)=>b.abertura.localeCompare(a.abertura));
   const res=hist.map(x=>({c:x,r:carResumo(x)}));const k=hoje().slice(0,7);const mes=res.filter(x=>x.c.abertura.slice(0,7)===k);
-  const totMes=mes.reduce((s,x)=>s+x.r.total,0);const media=mes.length?totMes/mes.length:0;
+  const totMes=mes.reduce((s,x)=>s+x.r.rec,0);const media=mes.length?totMes/mes.length:0;
   const aprov=res.slice(0,10).reduce((s,x)=>s+x.r.vend,0)/Math.max(1,res.slice(0,10).reduce((s,x)=>s+x.r.saiu,0));
   const camp={};res.slice(0,10).forEach(x=>x.r.rows.forEach(r=>camp[r.p]=(camp[r.p]||0)+r.vend));const top=Object.entries(camp).sort((a,b)=>b[1]-a[1])[0];
   const sob=[];
@@ -960,7 +962,7 @@ R.carrinho=()=>{
  const troco=TK.forma==='Dinheiro'&&num(TK.recebido)>0?num(TK.recebido)-tkTot:null;
  return head('Carrinho aberto',`Aberto às ${c.abertura.slice(11,16)} de ${dBR(c.abertura.slice(0,10))}. Toque nos produtos para montar a venda.`,`<button class="btn" onclick="editarCarrinho('${c.id}')">${ico('edit')}Editar</button><button class="btn" onclick="reporCarrinho()">${ico('plus')}Repor produtos</button><button class="btn" onclick="cardapioCarrinho()">${ico('pdf')}Cardápio de hoje</button><button class="btn pri" onclick="fecharCarrinho()">Fechar carrinho</button>`)
  +`<div class="car-sum">
-  <div><span>Vendido</span><b class="num">${brl(r.total)}</b></div>
+  <div><span>Vendido</span><b class="num">${brl(r.total)}</b>${r.rep>0?`<span class="small muted" style="display:block">${brl(r.rep)} é repasse</span>`:''}</div>
   <div><span>Itens vendidos</span><b class="num">${nq(r.vend)} de ${nq(r.saiu)}</b></div>
   ${FORMAS_CAR.map(f=>`<div class="fm"><span>${f}</span><b class="num">${brl(r.porForma[f]||0)}</b></div>`).join('')}
   <div><span>Vendas</span><b class="num">${c.vendas.length}</b></div></div>
@@ -1157,7 +1159,7 @@ function verCarrinho(id){
 function vendasCarrinhoPeriodo(de,ate){const out=[];for(const c of S.carrinhos||[])for(const v of c.vendas)if(v.data>=de&&v.data<=ate)out.push({c,v});return out}
 function carrinhoMes(k){
  let rec=0,mat=0,mo=0;
- for(const c of S.carrinhos||[]){for(const v of c.vendas)if(v.data.slice(0,7)===k)for(const x of v.itens){const kk=custoProduto(getProd(x.p));rec+=x.q*x.v;mat+=x.q*(kk.mat+kk.ind);mo+=x.q*kk.mo}
+ for(const c of S.carrinhos||[]){for(const v of c.vendas)if(v.data.slice(0,7)===k)for(const x of v.itens){const kk=custoProduto(getProd(x.p));if(!ehRep(x.p))rec+=x.q*x.v;mat+=x.q*(kk.mat+kk.ind);mo+=x.q*kk.mo}
   if(c.status==='fechado'&&(c.fechamento||'').slice(0,7)===k)for(const[p,q]of Object.entries(c.perdas||{})){const kk=custoProduto(getProd(p));mat+=q*(kk.mat+kk.ind);mo+=q*kk.mo}}
  return{rec,mat,mo};
 }
@@ -1565,14 +1567,14 @@ R.produtos=()=>{
  const cats=['Todos',...new Set(S.produtos.map(p=>p.cat))];const b=UI.prodBusca.toLowerCase();
  let L=S.produtos.filter(p=>(UI.prodCat==='Todos'||p.cat===UI.prodCat)&&(!b||p.nome.toLowerCase().includes(b)));
  const rows=L.map(p=>{const c=custoProduto(p);return{p,c,m:margem(p.preco,c.total),sug:precoSugerido(c.total)}});
- const abaixo=rows.filter(r=>r.m<CFG().margemMin/100).length;
+ const abaixo=rows.filter(r=>!r.p.repasse&&r.m<CFG().margemMin/100).length;
  return head('Produtos e preços',`Informe o custo de cada produto direto no cadastro ou deixe o sistema calcular pela ficha técnica. O preço sugerido considera a margem de ${CFG().margemAlvo}%.`,`<button class="btn pri" onclick="abrirProduto()">${ico('plus')}Novo produto</button>`)
  +prodTabs()+`${abaixo?`<div class="card" style="margin-bottom:14px;border-color:var(--bad)"><b class="down">${abaixo} produto${abaixo>1?'s':''} abaixo da margem mínima de ${CFG().margemMin}%.</b> <span class="muted">Clique no produto para ver a composição do custo e usar o preço sugerido.</span></div>`:''}
  <div class="toolbar"><input type="search" class="search" id="prod-busca" placeholder="Buscar produto" value="${esc(UI.prodBusca)}" oninput="UI.prodBusca=this.value;rerenderKeep('prod-busca')">
  <div class="chips">${cats.map(c=>`<button class="chip ${UI.prodCat===c?'on':''}" onclick="UI.prodCat='${c}';render()">${esc(c)}</button>`).join('')}</div></div>
  <div class="tbl-wrap"><table><thead><tr><th>Produto</th><th class="r">Materiais</th><th class="r">Mão de obra</th><th class="r">Custo total</th><th class="r">Preço</th><th class="r">Margem</th><th class="r">Sugerido</th></tr></thead><tbody>
- ${rows.map(({p,c,m,sug})=>`<tr class="click" onclick="abrirProduto('${p.id}')"><td><div class="nm">${avatar(p)}<div><b>${esc(p.nome)}</b>${p.ativo===false?' <span class="small muted">(inativo)</span>':''}<br><span class="small muted">${esc(p.cat)}${p.modoCusto==='manual'?' · custo manual':''}${p.frentes&&p.frentes.length?' · '+p.frentes.map(f=>FR_CURTO[f]).join(', '):''}</span></div></div></td>
- <td class="r">${brl(c.mat+c.ind)}</td><td class="r">${brl(c.mo)}</td><td class="r"><b>${brl(c.total)}</b></td><td class="r">${brl(p.preco)}</td><td class="r">${mgChip(m)}</td><td class="r">${brl(sug)}</td></tr>`).join('')}
+ ${rows.map(({p,c,m,sug})=>`<tr class="click" onclick="abrirProduto('${p.id}')"><td><div class="nm">${avatar(p)}<div><b>${esc(p.nome)}</b>${p.ativo===false?' <span class="small muted">(inativo)</span>':''}<br><span class="small muted">${esc(p.cat)}${p.repasse?' · repasse para '+esc(p.parceiro||'parceiro'):p.modoCusto==='manual'?' · custo manual':''}${p.frentes&&p.frentes.length?' · '+p.frentes.map(f=>FR_CURTO[f]).join(', '):''}</span></div></div></td>
+ <td class="r">${brl(c.mat+c.ind)}</td><td class="r">${brl(c.mo)}</td><td class="r"><b>${brl(c.total)}</b></td><td class="r">${brl(p.preco)}</td><td class="r">${p.repasse?'<span class="small muted">repasse</span>':mgChip(m)}</td><td class="r">${p.repasse?'<span class="muted">·</span>':brl(sug)}</td></tr>`).join('')}
  </tbody></table></div>
  <div class="card" style="margin-top:18px" ${modOn('ficha')?'':'hidden'}><h3>Simulador de reajuste de insumo</h3>
   <p class="muted small" style="margin:-4px 0 12px">Veja o que acontece com as margens se um insumo subir de preço, antes de o aumento chegar.</p>
@@ -1598,6 +1600,9 @@ function abrirProduto(id){
   <label class="f" id="pr-tempo-w" ${man?'hidden':''}>Tempo de produção por unidade (min)<input type="text" inputmode="decimal" id="pr-tempo" value="${nq(EP.tempo)}" oninput="prUpd()"></label>
   <div style="display:flex;flex-direction:column;gap:6px;justify-content:flex-end"><label class="chk" ${modOn('capacidade')?'':'hidden'}><input type="checkbox" id="pr-cap" ${EP.contaCap?'checked':''}> Conta na capacidade diária</label><label class="chk"><input type="checkbox" id="pr-ativo" ${EP.ativo!==false?'checked':''}> Produto ativo</label><label class="chk"><input type="checkbox" id="pr-catalogo" ${(EP.catalogo??(EP.cat!=='Adicionais'))?'checked':''}> Aparece no catálogo</label></div></div>
  <label class="f">Descrição para o catálogo <small>(opcional, uma frase curta)</small><input type="text" id="pr-desc" maxlength="90" value="${esc(EP.desc||'')}" placeholder="Ex.: Brigadeiro cremoso de chocolate com granulado belga"></label>
+ <div class="sec">Repasse</div>
+ <label class="chk"><input type="checkbox" id="pr-rep" ${EP.repasse?'checked':''} onchange="$('#pr-parc-w').hidden=!this.checked"> Produto de repasse (feito por outra pessoa; o valor vendido não é receita da loja)</label>
+ <label class="f" id="pr-parc-w" ${EP.repasse?'':'hidden'} style="margin-top:8px">Repassar para<input type="text" id="pr-parc" list="pr-parcs" value="${esc(EP.parceiro||'')}" placeholder="Nome de quem produz"><datalist id="pr-parcs">${[...new Set(S.produtos.map(p=>p.parceiro).filter(Boolean))].map(n=>`<option value="${esc(n)}">`).join('')}</datalist><small>As vendas deste produto ficam fora do faturamento e da margem, e aparecem em Financeiro, na aba Repasses. O custo informado abaixo é ignorado.</small></label>
  <div class="sec">Vende em</div>
  <div style="display:flex;gap:16px;flex-wrap:wrap">${Object.entries(FRENTES).map(([k,l])=>`<label class="chk"><input type="checkbox" id="pr-fr-${k}" ${(EP.frentes||[]).includes(k)?'checked':''}> ${l}</label>`).join('')}</div>
  <div class="small muted" style="margin-top:4px">Marque onde este produto ou serviço é vendido. Sem nenhuma marcada, ele aparece nas três frentes.</div>
@@ -1637,7 +1642,7 @@ function prUpd(){
 }
 function prSalvar(){
  const nome=$('#pr-nome').value.trim();if(!nome)return toast('Informe o nome do produto.','bad');
- Object.assign(EP,{nome,cat:$('#pr-cat').value.trim()||'Outros',contaCap:$('#pr-cap').checked,ativo:$('#pr-ativo').checked,catalogo:$('#pr-catalogo').checked,frentes:Object.keys(FRENTES).filter(k=>$('#pr-fr-'+k).checked),desc:$('#pr-desc').value.trim()});
+ Object.assign(EP,{nome,cat:$('#pr-cat').value.trim()||'Outros',contaCap:$('#pr-cap').checked,ativo:$('#pr-ativo').checked,catalogo:$('#pr-catalogo').checked,frentes:Object.keys(FRENTES).filter(k=>$('#pr-fr-'+k).checked),repasse:$('#pr-rep').checked,parceiro:$('#pr-rep').checked?($('#pr-parc').value.trim()||'Parceiro'):'',desc:$('#pr-desc').value.trim()});
  if(!EP.id){EP.id=uid('p');S.produtos.push(EP)}else{S.produtos[S.produtos.findIndex(p=>p.id===EP.id)]=EP}
  save();closeModal();render();toast('Produto salvo');
 }
@@ -1742,10 +1747,10 @@ function excluirCliente(id){if(S.pedidos.some(p=>p.cliente===id)||S.orcamentos.s
 const CATS_SAIDA=['Insumos','Embalagens','Despesas fixas','Impostos','Marketing','Equipamentos','Pró-labore','Outros'];
 function dreMes(k){
  const ent=S.pedidos.filter(p=>p.status==='entregue'&&p.dataEntrega.slice(0,7)===k);let rec=0,mat=0,mo=0,recEst=0;
- for(const p of ent){const t=totaisDoc(p);rec+=t.total;mat+=t.mat;mo+=t.mo;if(frenteDe(p)==='estacao')recEst+=t.total}
+ for(const p of ent){const t=totaisDoc(p);rec+=t.rec;mat+=t.mat;mo+=t.mo;if(frenteDe(p)==='estacao')recEst+=t.rec}
  const ck=carrinhoMes(k);const recEnc=rec;rec+=ck.rec;mat+=ck.mat;mo+=ck.mo;
  const imp=rec*CFG().imposto/100,tx=ent.reduce((s,p)=>s+taxasVendas(p.pagamentos||[]),0)+taxasVendas(vendasCarrinhoPeriodo(k+'-01',k+'-31').map(x=>x.v));const mc=rec-imp-tx-mat;
- const desp=S.lancamentos.filter(l=>l.tipo==='saida'&&l.data.slice(0,7)===k&&!['Insumos','Embalagens'].includes(l.cat));
+ const desp=S.lancamentos.filter(l=>l.tipo==='saida'&&l.data.slice(0,7)===k&&!['Insumos','Embalagens','Repasse'].includes(l.cat));
  const pl=desp.filter(l=>l.cat==='Pró-labore').reduce((s,l)=>s+l.valor,0);const dsp=desp.reduce((s,l)=>s+l.valor,0)-pl;
  const mcp=rec>0?mc/rec:0;const pe=mcp>0?(dsp+pl)/mcp:null;
  return{n:ent.length,recEnc,recEst,recCar:ck.rec,rec,imp,tx,mat,mc,dsp,pl,res:mc-dsp,mo,final:mc-dsp-pl-mo,desp,mcp,pe};
@@ -1762,7 +1767,7 @@ R.financeiro=()=>{
  const inn=cx.filter(x=>x.tipo==='entrada').reduce((s,x)=>s+x.valor,0),out=cx.filter(x=>x.tipo==='saida').reduce((s,x)=>s+x.valor,0);
  const receber=S.pedidos.filter(p=>p.status!=='cancelado'&&totaisDoc(p).saldo>0.009).sort((a,b)=>a.dataEntrega.localeCompare(b.dataEntrega));
  const an=modOn('analise');if(!an&&UI.finTab==='resumo')UI.finTab='caixa';const rf=recFrente(k);const aRec=receber.reduce((s,p)=>s+totaisDoc(p).saldo,0);
- const tabs=[...(an?[['resumo','Resultado do mês']]:[]),['caixa','Entradas e saídas'],['receber',`A receber (${receber.length})`]];
+ const tabs=[...(an?[['resumo','Resultado do mês']]:[]),['caixa','Entradas e saídas'],['receber',`A receber (${receber.length})`],...(temRepasse()?[['repasse','Repasses']]:[])];const rpm=repasses(k+'-01',k+'-31');const rpTot=Object.values(rpm).reduce((s,x)=>s+x.vend,0);
  let body='';
  if(UI.finTab==='resumo'){const r=v=>d.rec>0?`<span class="small muted" style="margin-left:8px">${pct(v/d.rec)}</span>`:'';
   body=`<div class="grid g21"><div class="card"><h3>Resultado de ${mesLabel(k)}</h3><table class="dre">
@@ -1783,9 +1788,10 @@ R.financeiro=()=>{
   <div class="grid" style="align-content:start"><div class="card kpi"><div class="l">Ponto de equilíbrio do mês</div><div class="v num">${d.pe!=null?brl(d.pe):'sem dados'}</div><div class="d">${d.pe==null?'Aparece quando houver vendas e despesas lançadas no mês.':d.rec>=d.pe?`<span class="up">Já passou em ${brl(d.rec-d.pe)}</span>. A partir daqui, cada venda vira lucro.`:`<span class="down">Faltam ${brl(d.pe-d.rec)} em vendas</span> para pagar as despesas e o pró-labore.`}</div></div><div class="card kpi"><div class="l">Recebido no mês</div><div class="v num up">${brl(inn)}</div></div><div class="card kpi"><div class="l">Pago no mês</div><div class="v num down">${brl(out)}</div></div><div class="card kpi"><div class="l">Saldo do caixa no mês</div><div class="v num">${brl(inn-out)}</div></div></div></div>`}
  else if(UI.finTab==='caixa'){body=`<div class="toolbar"><button class="btn pri" onclick="novoLanc()">${ico('plus')}Lançar despesa ou entrada</button><button class="btn" onclick="recorrentes()">Despesas fixas${(CFG().recorrentes||[]).length?` (${CFG().recorrentes.length})`:''}</button><span class="muted small">Pagamentos de pedidos entram automaticamente.</span></div>
   ${cx.length?`<div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th class="r">Valor</th><th></th></tr></thead><tbody>${cx.map(x=>`<tr><td class="num">${dCurto(x.data)}</td><td>${esc(x.desc)}</td><td class="small muted">${esc(x.cat)}</td><td class="r ${x.tipo==='entrada'?'up':'down'}">${x.tipo==='entrada'?'':'- '}${brl(x.valor)}</td><td>${x.id?`<button class="x" title="Excluir lançamento" onclick="delLanc('${x.id}')">${ico('x','width="16" height="16"')}</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nenhuma movimentação neste mês.</div>'}`}
+ else if(UI.finTab==='repasse'){body=repassesView(k,rpm)}
  else{body=receber.length?`<div class="tbl-wrap"><table><thead><tr><th>Pedido</th><th>Entrega</th><th>Situação</th><th class="r">Total</th><th class="r">Pago</th><th class="r">Saldo</th></tr></thead><tbody>${receber.map(p=>{const t=totaisDoc(p);return`<tr class="click" onclick="verPedido('${p.id}')"><td><b>#${p.num}</b> ${esc(nomeCli(p.cliente))}</td><td>${dBR(p.dataEntrega)}</td><td>${pill(p.status)}</td><td class="r">${brl(t.total)}</td><td class="r">${brl(t.pago)}</td><td class="r down"><b>${brl(t.saldo)}</b></td></tr>`}).join('')}</tbody></table></div>`:'<div class="empty">Nada a receber.</div>'}
  return head('Financeiro','Resultado por mês pelos pedidos entregues, caixa com tudo que entrou e saiu e o que ainda falta receber.',`<div style="display:flex;gap:6px;align-items:center"><button class="btn sm" onclick="UI.finMes=addMes('${k}',-1);render()" aria-label="Mês anterior">‹</button><span class="strong" style="min-width:150px;text-align:center">${mesLabel(k)}</span><button class="btn sm" onclick="UI.finMes=addMes('${k}',1);render()" aria-label="Próximo mês">›</button>${ADMIN()?`<button class="btn sm pri" onclick="fechamentoPDF('${k}')">${ico('pdf')}Fechamento</button>`:''}</div>`)
- +`<div class="card" style="margin-bottom:16px"><h3>Vendido em ${mesLabel(k)}</h3><div class="etapas">${[['carrinho','Carrinho'],['estacao','Estação Gourmet'],['encomenda','Encomendas']].map(([f,l])=>`<div class="etapa"><span>${l}</span><b class="num">${brl(rf[f])}</b></div>`).join('')}<div class="etapa"><span class="strong">Total</span><b class="num">${brl(rf.carrinho+rf.estacao+rf.encomenda)}</b></div><div class="etapa"><span>A receber</span><b class="num">${brl(aRec)}</b></div></div></div>
+ +`<div class="card" style="margin-bottom:16px"><h3>Vendido em ${mesLabel(k)}</h3><div class="etapas">${[['carrinho','Carrinho'],['estacao','Estação Gourmet'],['encomenda','Encomendas']].map(([f,l])=>`<div class="etapa"><span>${l}</span><b class="num">${brl(rf[f])}</b></div>`).join('')}<div class="etapa"><span class="strong">Total</span><b class="num">${brl(rf.carrinho+rf.estacao+rf.encomenda)}</b></div><div class="etapa"><span>A receber</span><b class="num">${brl(aRec)}</b></div>${rpTot>0?`<button class="etapa" onclick="UI.finTab='repasse';render()"><span>Repasse <span class="small muted">(não é da loja)</span></span><b class="num">${brl(rpTot)}</b></button>`:''}</div></div>
  <div class="chips" style="margin-bottom:16px">${tabs.map(([t,l])=>`<button class="chip ${UI.finTab===t?'on':''}" onclick="UI.finTab='${t}';render()">${l}</button>`).join('')}</div>${body}`;
 }
 function novoLanc(){openModal('Novo lançamento',`<div class="frow"><label class="f">Tipo<select id="lc-tipo"><option value="saida">Saída (despesa)</option><option value="entrada">Entrada</option></select></label><label class="f">Data<input type="date" id="lc-data" value="${hoje()}"></label><label class="f">Valor (R$)<input type="text" inputmode="decimal" id="lc-valor"></label></div>
@@ -1793,6 +1799,22 @@ function novoLanc(){openModal('Novo lançamento',`<div class="frow"><label class
  `<button class="btn" onclick="closeModal()">Cancelar</button><button class="btn pri" onclick="salvarLanc()">Lançar</button>`)}
 function salvarLanc(){const v=num($('#lc-valor').value);if(!(v>0))return toast('Informe o valor.','bad');S.lancamentos.push({id:uid('l'),data:$('#lc-data').value||hoje(),tipo:$('#lc-tipo').value,cat:$('#lc-cat').value,desc:$('#lc-desc').value.trim()||$('#lc-cat').value,valor:+v.toFixed(2)});save();closeModal();render();toast('Lançamento registrado')}
 function delLanc(id){askConfirm('Excluir este lançamento?','Excluir',()=>{if(String(id).startsWith('rec_')){const c=CFG();c.recPulados=[...(c.recPulados||[]),id].slice(-60)}S.lancamentos=S.lancamentos.filter(l=>l.id!==id);save();closeModal();render()},'Voltar')}
+
+/* ============ REPASSES: produtos de terceiros vendidos pela loja ============ */
+const temRepasse=()=>S.produtos.some(p=>p.repasse)||S.lancamentos.some(l=>l.cat==='Repasse');
+function repasses(de,ate){const m={};const add=(pid,q,v)=>{const p=getProd(pid);if(!p||!p.repasse)return;const n=p.parceiro||'Parceiro';const a=m[n]=m[n]||{vend:0,un:0,pago:0,prods:{}};a.vend+=v;a.un+=q;const pp=a.prods[pid]=a.prods[pid]||{q:0,v:0};pp.q+=q;pp.v+=v};
+ for(const p of S.pedidos)if(p.status==='entregue'&&p.dataEntrega>=de&&p.dataEntrega<=ate)for(const x of p.itens)add(x.p,x.q,x.q*x.v);
+ for(const{v}of vendasCarrinhoPeriodo(de,ate))for(const x of v.itens)add(x.p,x.q,x.q*x.v);
+ for(const l of S.lancamentos)if(l.cat==='Repasse'&&l.tipo==='saida'&&l.data>=de&&l.data<=ate){const n=l.parceiro||'Parceiro';(m[n]=m[n]||{vend:0,un:0,pago:0,prods:{}}).pago+=l.valor}
+ return m}
+function repassesView(k,rpm){const tot=repasses('0000-01-01','9999-12-31');const nomes=[...new Set([...Object.keys(rpm),...Object.keys(tot).filter(n=>Math.abs(tot[n].vend-tot[n].pago)>0.009)])].sort();
+ if(!nomes.length)return'<div class="empty">Nenhuma venda de produto de repasse ainda. Marque o produto como "Produto de repasse" no cadastro para ele aparecer aqui.</div>';
+ return`<p class="small muted" style="margin:0 0 12px">Produtos feitos por outra pessoa e vendidos pela loja. Esses valores passam pelo caixa, mas não entram no faturamento, na margem nem no resultado.</p>`+nomes.map(n=>{const a=rpm[n]||{vend:0,un:0,pago:0,prods:{}};const t=tot[n]||{vend:0,pago:0};const saldo=+(t.vend-t.pago).toFixed(2);const nj=esc(JSON.stringify(n));
+  return`<div class="card" style="margin-bottom:14px"><h3><span>${esc(n)}</span><button class="btn sm pri" onclick='pagarRepasse(${nj},${saldo>0?saldo:0})'>Registrar pagamento</button></h3>
+  <div class="etapas"><div class="etapa"><span>Vendido em ${MESES[+k.slice(5)-1]}</span><b class="num">${brl(a.vend)}</b></div><div class="etapa"><span>Pago em ${MESES[+k.slice(5)-1]}</span><b class="num">${brl(a.pago)}</b></div><div class="etapa"><span class="strong">${saldo<-0.009?'Pago a mais':'A repassar (saldo total)'}</span><b class="num ${saldo>0.009?'down':''}">${brl(Math.abs(saldo))}</b></div></div>
+  ${Object.keys(a.prods).length?`<ul class="prodlist" style="margin-top:12px">${Object.entries(a.prods).sort((x,y)=>y[1].v-x[1].v).map(([id,pp])=>`<li><span class="nm">${avatar(getProd(id),'sm')}<span>${esc((getProd(id)||{}).nome||'?')} <span class="small muted">${nq(pp.q)} un.</span></span></span><b class="num">${brl(pp.v)}</b></li>`).join('')}</ul>`:'<div class="small muted" style="margin-top:10px">Nenhuma venda neste mês.</div>'}</div>`}).join('')}
+function pagarRepasse(n,sug){openModal('Pagamento de repasse',`<p class="small muted" style="margin:0 0 10px">Registre o que você já entregou a ${esc(n)}. O valor sai do caixa e abate do saldo a repassar.</p><div class="frow"><label class="f">Valor (R$)<input type="text" inputmode="decimal" id="rp-valor" value="${sug>0?n2(sug):''}"></label><label class="f">Data<input type="date" id="rp-data" value="${hoje()}"></label></div>`,`<button class="btn" onclick="closeModal()">Cancelar</button><button class="btn pri" id="rp-ok">Registrar</button>`);
+ $('#rp-ok').onclick=()=>{const v=num($('#rp-valor').value);if(!(v>0))return toast('Informe o valor.','bad');S.lancamentos.push({id:uid('l'),data:$('#rp-data').value||hoje(),tipo:'saida',cat:'Repasse',desc:'Repasse para '+n,parceiro:n,valor:+v.toFixed(2)});save();closeModal();render();toast('Pagamento registrado')}}
 
 /* despesas fixas: lançadas sozinhas todo mês */
 function lancarRecorrentes(){const rs=CFG().recorrentes||[];if(!rs.length)return false;const T=hoje(),k=T.slice(0,7);let m=false;
@@ -1836,11 +1858,12 @@ function fechamentoPDF(k){
  const cars=(S.carrinhos||[]).filter(x=>x.status==='fechado'&&x.abertura.slice(0,7)===k).map(carResumo);
  if(cars.length){sec('Carrinho');const sa=cars.reduce((s,r)=>s+r.saiu,0),ve=cars.reduce((s,r)=>s+r.vend,0),tt=cars.reduce((s,r)=>s+r.total,0);
   row('Noites de venda',String(cars.length));row('Média por noite',brl(tt/cars.length));row('Aproveitamento (vendido sobre o que saiu)',pct(sa?ve/sa:0))}
- const agg={};const add=(p,q,v)=>{const a=agg[p]=agg[p]||{q:0,r:0};a.q+=q;a.r+=v};
+ const agg={};const add=(p,q,v)=>{if(ehRep(p))return;const a=agg[p]=agg[p]||{q:0,r:0};a.q+=q;a.r+=v};
  for(const p of S.pedidos)if(p.status==='entregue'&&p.dataEntrega.slice(0,7)===k)for(const x of p.itens)add(x.p,x.q,x.q*x.v);
  for(const{v}of vendasCarrinhoPeriodo(k+'-01',k+'-31'))for(const x of v.itens)add(x.p,x.q,x.q*x.v);
  const top=Object.entries(agg).sort((a,b)=>b[1].r-a[1].r).slice(0,8);
  if(top.length){sec('Produtos que mais faturaram');top.forEach(([id,a])=>{const p=getProd(id)||{nome:'?',preco:0};const m=margem(a.q?a.r/a.q:0,custoProduto(p).total);row(`${p.nome} (${nq(a.q)} un.)`,brl(a.r),{p:'margem '+pct(m)})})}
+ const rps=repasses(k+'-01',k+'-31'),rpt=repasses('0000-01-01',k+'-31');if(Object.keys(rps).length){sec('Repasses (fora do resultado)');Object.entries(rps).forEach(([n,a])=>{row(`${n}: vendido no mês (${nq(a.un)} un.)`,brl(a.vend));row('Pago no mês',brl(a.pago),{sub:true});row('Saldo a repassar até o fim do mês',brl(Math.max(0,(rpt[n]||a).vend-(rpt[n]||a).pago)),{sub:true})})}
  const rec=S.pedidos.filter(p=>p.status!=='cancelado'&&totaisDoc(p).saldo>0.009);if(rec.length){sec('A receber');row(`${rec.length} pedido${rec.length>1?'s':''} com saldo em aberto`,brl(rec.reduce((s,p)=>s+totaisDoc(p).saldo,0)),{b:true})}
  const np=doc.getNumberOfPages();for(let i=1;i<=np;i++){doc.setPage(i);font('normal',7.8,PC.muted);doc.text('GBR Assessoria · Relatório gerado a partir dos lançamentos do sistema de gestão.',M,288);if(np>1)doc.text(`${i}/${np}`,R,288,{align:'right'})}
  doc.setProperties({title:`Fechamento ${mesLabel(k)}`,author:'GBR Assessoria'});
@@ -1852,8 +1875,8 @@ R.relatorios=()=>{
  const T=hoje(),k=T.slice(0,7);const per={mes:['Este mês',k+'-01',T],tri:['Últimos 3 meses',addMes(k,-2)+'-01',T],ano:['Últimos 12 meses',addMes(k,-11)+'-01',T]};
  const[lbl,de,ate]=per[UI.relPer];const fr=UI.relFr||'tudo';const ps=S.pedidos.filter(p=>fr!=='carrinho'&&(fr==='tudo'||frenteDe(p)===fr)&&p.status==='entregue'&&p.dataEntrega>=de&&p.dataEntrega<=ate);
  const agg={};let rec=0,luc=0;const cat={};
- for(const p of ps){const t=totaisDoc(p);rec+=t.total;luc+=t.lucro;for(const x of p.itens){const pr=getProd(x.p);if(!pr)continue;const c=custoProduto(pr);const a=agg[x.p]=agg[x.p]||{q:0,r:0,l:0};a.q+=x.q;a.r+=x.q*x.v;a.l+=x.q*x.v*(1-deducoes())-x.q*c.total;cat[pr.cat]=(cat[pr.cat]||0)+x.q*x.v}}
- let recCar=0;for(const{v}of(fr==='tudo'||fr==='carrinho'?vendasCarrinhoPeriodo(de,ate):[]))for(const x of v.itens){const pr=getProd(x.p);if(!pr)continue;const c=custoProduto(pr);const a=agg[x.p]=agg[x.p]||{q:0,r:0,l:0};const l=x.q*x.v*(1-CFG().imposto/100-taxaForma(v.forma)/100)-x.q*c.total;a.q+=x.q;a.r+=x.q*x.v;a.l+=l;rec+=x.q*x.v;luc+=l;recCar+=x.q*x.v;cat[pr.cat]=(cat[pr.cat]||0)+x.q*x.v}
+ for(const p of ps){const t=totaisDoc(p);rec+=t.rec;luc+=t.lucro;for(const x of p.itens){const pr=getProd(x.p);if(!pr||pr.repasse)continue;const c=custoProduto(pr);const a=agg[x.p]=agg[x.p]||{q:0,r:0,l:0};a.q+=x.q;a.r+=x.q*x.v;a.l+=x.q*x.v*(1-deducoes())-x.q*c.total;cat[pr.cat]=(cat[pr.cat]||0)+x.q*x.v}}
+ let recCar=0;for(const{v}of(fr==='tudo'||fr==='carrinho'?vendasCarrinhoPeriodo(de,ate):[]))for(const x of v.itens){const pr=getProd(x.p);if(!pr||pr.repasse)continue;const c=custoProduto(pr);const a=agg[x.p]=agg[x.p]||{q:0,r:0,l:0};const l=x.q*x.v*(1-CFG().imposto/100-taxaForma(v.forma)/100)-x.q*c.total;a.q+=x.q;a.r+=x.q*x.v;a.l+=l;rec+=x.q*x.v;luc+=l;recCar+=x.q*x.v;cat[pr.cat]=(cat[pr.cat]||0)+x.q*x.v}
  const rows=Object.entries(agg).map(([id,a])=>({p:getProd(id),...a})).sort((a,b)=>b.r-a.r);const totR=rows.reduce((s,r)=>s+r.r,0);let acc=0;
  rows.forEach(r=>{acc+=r.r;r.abc=acc/totR<=0.8?'A':acc/totR<=0.95?'B':'C'});
  const maxL=Math.max(...rows.map(r=>Math.abs(r.l)),1);
