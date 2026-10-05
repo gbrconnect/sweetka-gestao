@@ -826,9 +826,9 @@ function siteCard(x){const d=x.dados||{};const est=d.tipo==='estacao';const its=
  ${x.status==='novo'?`<span class="actions"><button class="btn ghost danger" onclick="recusarSite('${x.id}')">Recusar</button><button class="btn pri" onclick="aceitarSite('${x.id}')">${est?'Aceitar e montar orçamento':'Aceitar encomenda'}</button></span>`:`<span class="actions">${botaoWa(x)}</span>`}</div></div>`}
 R.online=()=>{const novos=siteNovos(),resp=SITE.filter(x=>x.status!=='novo').slice(0,12);const link=new URL('pedir/',location.href.split('#')[0]).href;
  return head('Pedidos online','Pedidos feitos pelas clientes na página pública. Ao aceitar, a encomenda entra na agenda; o pedido de Estação vira orçamento para você ajustar e enviar.',`<button class="btn" onclick="copiarTexto('${link}')">${ico('copy')}Copiar link da página</button><a class="btn" href="${link}" target="_blank" rel="noopener">Abrir página</a>`)
- +`<div class="card" style="margin-bottom:16px"><span class="small muted">Link para colocar na bio do Instagram ou enviar às clientes:</span><br><b style="word-break:break-all">${esc(link)}</b><div class="small muted" style="margin-top:6px">A página abre com as categorias dos produtos marcados como "Aparece no catálogo", e a cliente escolhe a que procura. Para mudar o que aparece em cada uma, ajuste a categoria no cadastro do produto. Pacotes marcados só como Estação Gourmet ficam em uma categoria própria, como pedido de orçamento.</div></div>
- <div class="grp">Novos <span>${novos.length}</span></div>${novos.length?novos.map(siteCard).join(''):'<div class="empty">Nenhum pedido novo no momento.</div>'}
- ${resp.length?`<div class="grp" style="margin-top:18px">Já respondidos</div>${resp.map(siteCard).join('')}`:''}`};
+ +`<div class="grp">Novos <span>${novos.length}</span></div>${novos.length?novos.map(siteCard).join(''):'<div class="empty">Nenhum pedido novo no momento.</div>'}
+ ${resp.length?`<div class="grp" style="margin-top:18px">Já respondidos</div>${resp.map(siteCard).join('')}`:''}
+ <p class="small muted" style="margin:26px 0 0;font-size:11.5px;line-height:1.5">Link da página: ${esc(link)}<br>Ela mostra os produtos marcados como "Aparece no catálogo", separados pela categoria do cadastro. Pacotes só de Estação Gourmet entram como pedido de orçamento.</p>`};
 function waLink(fone,texto){let n=String(fone||'').replace(/\D/g,'');if(n.length===10||n.length===11)n='55'+n;return n.length>=12?`https://wa.me/${n}?text=${encodeURIComponent(texto)}`:''}
 function msgSite(x){const d=x.dados||{};const c=CFG();const nome=String(d.nome||'').trim().split(/\s+/)[0]||'';const doc=[...S.pedidos,...S.orcamentos].find(o=>o.origemSite===x.id);const fim=`\n\n${c.empresa}${c.instagram?' · '+c.instagram:''}`;
  if(x.status==='recusado')return`Olá, ${nome}! Recebemos o seu pedido pelo nosso site, mas infelizmente não vamos conseguir atender${/^\d{4}-\d{2}-\d{2}$/.test(d.data||'')?' no dia '+dBR(d.data):''}. Se quiser, me chama aqui que a gente vê outra data ou outra opção para você.${fim}`;
@@ -942,7 +942,7 @@ R.carrinho=()=>{
  if(!c){
   const hist=[...(S.carrinhos||[])].filter(x=>x.status==='fechado').sort((a,b)=>b.abertura.localeCompare(a.abertura));
   const res=hist.map(x=>({c:x,r:carResumo(x)}));const k=hoje().slice(0,7);const mes=res.filter(x=>x.c.abertura.slice(0,7)===k);
-  const totMes=mes.reduce((s,x)=>s+x.r.rec,0);const media=mes.length?totMes/mes.length:0;
+  const totMes=mes.reduce((s,x)=>s+x.r.total,0);const repMes=mes.reduce((s,x)=>s+x.r.rep,0);const media=mes.length?totMes/mes.length:0;
   const aprov=res.slice(0,10).reduce((s,x)=>s+x.r.vend,0)/Math.max(1,res.slice(0,10).reduce((s,x)=>s+x.r.saiu,0));
   const camp={};res.slice(0,10).forEach(x=>x.r.rows.forEach(r=>camp[r.p]=(camp[r.p]||0)+r.vend));const top=Object.entries(camp).sort((a,b)=>b[1]-a[1])[0];
   const sob=[];
@@ -951,19 +951,19 @@ R.carrinho=()=>{
   +`${est.length?`<div class="card" style="margin-bottom:16px"><h3>Sobras guardadas da última noite <button class="btn sm ghost" onclick="zerarSobras()">Descartar sobras</button></h3><div class="prontos">${est.map(p=>`<div class="pronto">${avatar(p)}<span>${esc(p.nome)}</span><b class="num">${nq(prontos(p.id))}</b></div>`).join('')}</div></div>`:''}
   `+`${sob.length?`<div class="card" style="margin-bottom:16px"><b>Sobras guardadas do último carrinho:</b> ${sob.map(([p,q])=>`${nq(q)} ${esc((getProd(p)||{}).nome||'?')}`).join(', ')}. Elas entram automaticamente no próximo carrinho.</div>`:''}
   <div class="grid g4" style="margin-bottom:16px">
-   <div class="card kpi"><div class="l">Vendido no carrinho em ${MESES[+k.slice(5)-1]}</div><div class="v num">${brl(totMes)}</div><div class="d">${mes.length} noite${mes.length===1?'':'s'}</div></div>
+   <div class="card kpi"><div class="l">Vendido no carrinho em ${MESES[+k.slice(5)-1]}</div><div class="v num">${brl(totMes)}</div><div class="d">${mes.length} noite${mes.length===1?'':'s'}${repMes>0?`<br>${brl(repMes)} é repasse · ${brl(totMes-repMes)} da loja`:''}</div></div>
    <div class="card kpi"><div class="l">Média por noite</div><div class="v num">${brl(media)}</div></div>
    <div class="card kpi"><div class="l">Aproveitamento</div><div class="v num">${pct(aprov)}</div><div class="d">do que sai é vendido (últimas 10 noites)</div></div>
    <div class="card kpi"><div class="l">Mais vendido</div><div class="v" style="font-size:16px;line-height:1.3">${top?esc((getProd(top[0])||{}).nome):'sem dados'}</div><div class="d">${top?nq(top[1])+' unidades nas últimas 10 noites':''}</div></div></div>
   <div class="card"><h3>Noites anteriores</h3>${res.length?`<div class="tbl-wrap"><table><thead><tr><th>Noite</th><th class="r">Duração</th><th class="r">Vendidos</th><th class="r">Aproveitamento</th><th class="r">Total</th><th class="r">Lucro</th></tr></thead><tbody>
-  ${res.map(({c,r})=>`<tr class="click" onclick="verCarrinho('${c.id}')"><td><b>${SEMLONGO[toDate(c.abertura.slice(0,10)).getDay()]}, ${dCurto(c.abertura.slice(0,10))}</b><br><span class="small muted">${c.abertura.slice(11,16)} às ${(c.fechamento||'').slice(11,16)}</span></td><td class="r">${c.fechamento?duracao(c.abertura,c.fechamento):''}</td><td class="r">${nq(r.vend)} de ${nq(r.saiu)}</td><td class="r">${pct(r.saiu?r.vend/r.saiu:0)}</td><td class="r"><b>${brl(r.total)}</b></td><td class="r">${brl(r.lucro)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nenhum carrinho fechado ainda.</div>'}</div>`;
+  ${res.map(({c,r})=>`<tr class="click" onclick="verCarrinho('${c.id}')"><td><b>${SEMLONGO[toDate(c.abertura.slice(0,10)).getDay()]}, ${dCurto(c.abertura.slice(0,10))}</b><br><span class="small muted">${c.abertura.slice(11,16)} às ${(c.fechamento||'').slice(11,16)}</span></td><td class="r">${c.fechamento?duracao(c.abertura,c.fechamento):''}</td><td class="r">${nq(r.vend)} de ${nq(r.saiu)}</td><td class="r">${pct(r.saiu?r.vend/r.saiu:0)}</td><td class="r"><b>${brl(r.total)}</b>${r.rep>0?`<br><span class="small muted">${brl(r.rep)} repasse</span>`:''}</td><td class="r">${brl(r.lucro)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nenhum carrinho fechado ainda.</div>'}</div>`;
  }
  const r=carResumo(c);const tkQ=Object.values(TK.itens).reduce((s,q)=>s+q,0);
  const tkSub=Object.entries(TK.itens).reduce((s,[p,q])=>s+q*(r.rows.find(x=>x.p===p)||{}).preco,0);const tkD=tkDesc(tkSub),tkTot=+(tkSub-tkD).toFixed(2);
  const troco=TK.forma==='Dinheiro'&&num(TK.recebido)>0?num(TK.recebido)-tkTot:null;
  return head('Carrinho aberto',`Aberto às ${c.abertura.slice(11,16)} de ${dBR(c.abertura.slice(0,10))}. Toque nos produtos para montar a venda.`,`<button class="btn" onclick="editarCarrinho('${c.id}')">${ico('edit')}Editar</button><button class="btn" onclick="reporCarrinho()">${ico('plus')}Repor produtos</button><button class="btn" onclick="cardapioCarrinho()">${ico('pdf')}Cardápio de hoje</button><button class="btn pri" onclick="fecharCarrinho()">Fechar carrinho</button>`)
  +`<div class="car-sum">
-  <div><span>Vendido</span><b class="num">${brl(r.total)}</b>${r.rep>0?`<span class="small muted" style="display:block">${brl(r.rep)} é repasse</span>`:''}</div>
+  <div><span>Vendido</span><b class="num">${brl(r.total)}</b>${r.rep>0?`<span class="small muted" style="display:block;font-weight:500">${brl(r.rep)} repasse · ${brl(r.rec)} da loja</span>`:''}</div>
   <div><span>Itens vendidos</span><b class="num">${nq(r.vend)} de ${nq(r.saiu)}</b></div>
   ${FORMAS_CAR.map(f=>`<div class="fm"><span>${f}</span><b class="num">${brl(r.porForma[f]||0)}</b></div>`).join('')}
   <div><span>Vendas</span><b class="num">${c.vendas.length}</b></div></div>
@@ -1126,7 +1126,7 @@ function prdSalvar(){
 }
 function fecharCarrinho(){
  const c=carAberto();const r=carResumo(c);const dinEsp=c.fundo+(r.porForma['Dinheiro']||0);
- openModal('Fechar carrinho',`<div class="kv" style="margin-bottom:4px"><div><span>Total vendido</span><b>${brl(r.total)}</b></div>${FORMAS_CAR.map(f=>`<div><span>${f}</span><b>${brl(r.porForma[f]||0)}</b></div>`).join('')}<div><span>Aproveitamento</span><b>${pct(r.saiu?r.vend/r.saiu:0)}</b></div></div>
+ openModal('Fechar carrinho',`<div class="kv" style="margin-bottom:4px"><div><span>Total vendido</span><b>${brl(r.total)}</b></div>${r.rep>0?`<div><span>Repasse a parceiros</span><b>${brl(r.rep)}</b></div>`:''}${FORMAS_CAR.map(f=>`<div><span>${f}</span><b>${brl(r.porForma[f]||0)}</b></div>`).join('')}<div><span>Aproveitamento</span><b>${pct(r.saiu?r.vend/r.saiu:0)}</b></div></div>
  <div class="sec">Conferência dos produtos</div>
  <div class="tbl-wrap"><table><thead><tr><th>Produto</th><th class="r">Saiu</th><th class="r">Vendido</th><th class="r">Deveria sobrar</th><th class="r">Sobrou de fato</th></tr></thead><tbody>
  ${r.rows.map(x=>`<tr><td><div class="nm">${avatar(getProd(x.p),'sm')}<span>${esc((getProd(x.p)||{}).nome)}</span></div></td><td class="r">${nq(x.saiu)}</td><td class="r">${nq(x.vend)}</td><td class="r">${nq(x.resta)}</td><td class="r"><input type="text" inputmode="numeric" id="fc-${x.p}" value="${nq(Math.max(0,x.resta))}" style="width:80px;text-align:right" oninput="fcUpd()"></td></tr>`).join('')}</tbody></table></div>
@@ -1149,7 +1149,7 @@ function fcSalvar(){
 }
 function verCarrinho(id){
  const c=S.carrinhos.find(x=>x.id===id);const r=carResumo(c);const pd=Object.entries(c.perdas||{});
- openModal(`Carrinho de ${dBR(c.abertura.slice(0,10))}`,`<div class="kv"><div><span>Horário</span><b>${c.abertura.slice(11,16)} às ${(c.fechamento||'').slice(11,16)}</b></div><div><span>Total vendido</span><b>${brl(r.total)}</b></div>${FORMAS_CAR.map(f=>`<div><span>${f}</span><b>${brl(r.porForma[f]||0)}</b></div>`).join('')}<div><span>Lucro estimado</span><b>${brl(r.lucro)}</b></div><div><span>Diferença no caixa</span><b class="${Math.abs(c.difCaixa||0)<0.01?'up':'down'}">${brl(c.difCaixa||0)}</b></div></div>
+ openModal(`Carrinho de ${dBR(c.abertura.slice(0,10))}`,`<div class="kv"><div><span>Horário</span><b>${c.abertura.slice(11,16)} às ${(c.fechamento||'').slice(11,16)}</b></div><div><span>Total vendido</span><b>${brl(r.total)}</b></div>${r.rep>0?`<div><span>Repasse a parceiros</span><b>${brl(r.rep)}</b></div><div><span>Vendas da loja</span><b>${brl(r.rec)}</b></div>`:''}${FORMAS_CAR.map(f=>`<div><span>${f}</span><b>${brl(r.porForma[f]||0)}</b></div>`).join('')}<div><span>Lucro estimado</span><b>${brl(r.lucro)}</b></div><div><span>Diferença no caixa</span><b class="${Math.abs(c.difCaixa||0)<0.01?'up':'down'}">${brl(c.difCaixa||0)}</b></div></div>
  ${(()=>{const din=r.porForma['Dinheiro']||0,esp=(c.fundo||0)+din,fech=c.status==='fechado',dif=fech?(c.dinheiroContado||0)-esp:0;const L=(l,v,o={})=>`<tr class="${o.t?'tot':'sub'}"><td>${l}</td><td class="${o.c||''}">${v}</td></tr>`;
  return`<div class="grid g2" style="margin:14px 0"><div class="card" style="padding:14px"><h3>Conciliação do caixa</h3><table class="dre">${L('Troco inicial',brl(c.fundo||0))}${L('(+) Vendas em dinheiro',brl(din))}${L('Deveria ter na gaveta',brl(esp),{t:1})}${fech?L('Dinheiro contado no fechamento',brl(c.dinheiroContado||0))+L(Math.abs(dif)<0.01?'Caixa conferido':dif>0?'Sobrou no caixa':'Faltou no caixa',brl(Math.abs(dif)),{t:1,c:Math.abs(dif)<0.01?'up':'down'}):L('Carrinho ainda aberto','a conferir no fechamento')}</table>
   <table class="dre" style="margin-top:10px">${['Pix','Débito','Crédito'].map(f=>L('Recebido em '+f,brl(r.porForma[f]||0))).join('')}${L('Total fora da gaveta',brl(r.total-din),{t:1})}</table></div>
