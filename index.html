@@ -2191,7 +2191,7 @@ async function cardapioPNG(fmt,est){
   else{x.fillStyle=SOFT;x.fill();x.fillStyle=GOLD;x.textAlign='center';f(800,ph*0.42);x.fillText((p.nome.trim()[0]||'?').toUpperCase(),px+ph/2,py+ph/2+ph*0.15)}
   x.restore();
   const tx=px+ph+pad*0.9,tw=bx+cw-pad-tx;x.textAlign='left';f(700,fn);const ls=wrap(p.nome,tw,ch>=150?3:2),lh=fn*1.2,bh=ls.length*lh+fp*1.25;let ty=by+(ch-bh)/2+fn*0.9;
-  x.fillStyle=INK;ls.forEach(l=>{x.fillText(l,tx,ty);ty+=lh});x.fillStyle=GOLD;f(800,fp);x.fillText((est?'a partir de ':'')+brl(it.preco),tx,ty+fp*0.2)});
+  x.fillStyle=INK;ls.forEach(l=>{x.fillText(l,tx,ty);ty+=lh});x.fillStyle=GOLD;f(800,fp);x.fillText(est?(it.preco>0?'a partir de '+brl(it.preco):'Sob consulta'):brl(it.preco),tx,ty+fp*0.2)});
  const fy=H-FOOT+48;x.textAlign='center';x.fillStyle=INK;f(700,32);x.fillText(est?'Peça o seu orçamento':'Passe aqui e garanta o seu',W/2,fy+10);
  let fy2=fy;if(local){x.fillStyle=GOLD;f(800,32);x.fillText(wrap(local,W-2*M,1)[0],W/2,fy+58);fy2+=50}
  const ct=[c.instagram,c.whatsapp?'WhatsApp '+c.whatsapp:''].filter(Boolean).join('   ·   ');if(ct){x.fillStyle=MUT;f(500,26);x.fillText(ct,W/2,fy2+54)}
