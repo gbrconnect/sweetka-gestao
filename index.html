@@ -1589,8 +1589,8 @@ function simular(){
 }
 let EP=null;
 function abrirProduto(id){
- EP=id?clone(getProd(id)):{id:'',nome:'',cat:'Docinhos',preco:0,tempo:1,contaCap:true,ativo:true,itens:[],modoCusto:'manual',custoManual:0};EP.modoCusto=EP.modoCusto||'ficha';const man=EP.modoCusto==='manual';
- const cats=[...new Set([...S.produtos.map(p=>p.cat),'Docinhos','Personalizados','Kits e caixas','Eventos'])];
+ EP=id?clone(getProd(id)):{id:'',nome:'',cat:(S.produtos.at(-1)||{}).cat||'Doces a pronta entrega',preco:0,tempo:1,contaCap:true,ativo:true,itens:[],modoCusto:'manual',custoManual:0};EP.modoCusto=EP.modoCusto||'ficha';const man=EP.modoCusto==='manual';
+ const cats=[...new Set([...S.produtos.map(p=>p.cat),'Doces a pronta entrega','Doces para festa','Kits e caixas'])];
  const body=`<div class="foto-ed"><span id="pr-foto">${avatar(EP,'lg')}</span><div><div class="actions"><label class="btn sm" style="cursor:pointer">${EP.foto?'Trocar foto':'Enviar foto'}<input type="file" id="pr-foto-in" accept="image/png,image/jpeg,image/webp" hidden onchange="lerImagem(this,{max:400,quadrado:true},f=>{EP.foto=f;$('#pr-foto').innerHTML=avatar(EP,'lg')})"></label><button class="btn sm ghost danger" onclick="EP.foto='';$('#pr-foto').innerHTML=avatar(EP,'lg')">Remover</button></div><div class="small muted" style="margin-top:4px">Foto do produto. Aparece redonda ao lado do nome.</div></div></div>
  <div class="frow"><label class="f" style="grid-column:span 2">Nome do produto<input type="text" id="pr-nome" value="${esc(EP.nome)}" placeholder="Ex.: Brigadeiro de pistache 20 g"></label>
   <label class="f">Categoria<input type="text" id="pr-cat" list="pr-cats" value="${esc(EP.cat)}"><datalist id="pr-cats">${cats.map(c=>`<option value="${esc(c)}">`).join('')}</datalist></label></div>
