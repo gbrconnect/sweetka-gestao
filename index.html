@@ -392,6 +392,7 @@ details.inner[open] summary{margin-bottom:10px}
 @media (prefers-reduced-motion: no-preference){.modal{animation:pop .18s ease-out}@keyframes pop{from{transform:translateY(8px);opacity:.6}to{transform:none;opacity:1}}}
 /* iPhone aproxima a tela ao tocar em campo com letra menor que 16px */
 @media (pointer:coarse){input,select,textarea{font-size:16px!important}}
+a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
 </style>
 
 </head>
@@ -819,14 +820,26 @@ function siteCard(x){const d=x.dados||{};const est=d.tipo==='estacao';const its=
  <ul class="prodlist" style="margin-top:10px">${its.map(i=>{const p=getProd(i.p);return`<li><span class="nm">${avatar(p,'sm')}<span>${esc(p?p.nome:(i.nome||'Produto removido'))}</span></span><b class="num">${nq(+i.q||0)}</b></li>`}).join('')}</ul>
  ${d.obs?`<div class="small" style="background:var(--surface-2);padding:10px 12px;border-radius:8px;margin-top:8px"><b>Observações:</b> ${esc(d.obs)}</div>`:''}
  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px"><span>${est?'Valor dos pacotes':'Total dos produtos'} <b class="num">${brl(tot)}</b>${!est&&d.modo==='entrega'?' <span class="small muted">+ taxa do Uber</span>':''}</span>
- ${x.status==='novo'?`<span class="actions"><button class="btn ghost danger" onclick="recusarSite('${x.id}')">Recusar</button><button class="btn pri" onclick="aceitarSite('${x.id}')">${est?'Aceitar e montar orçamento':'Aceitar encomenda'}</button></span>`:''}</div></div>`}
+ ${x.status==='novo'?`<span class="actions"><button class="btn ghost danger" onclick="recusarSite('${x.id}')">Recusar</button><button class="btn pri" onclick="aceitarSite('${x.id}')">${est?'Aceitar e montar orçamento':'Aceitar encomenda'}</button></span>`:`<span class="actions">${botaoWa(x)}</span>`}</div></div>`}
 R.online=()=>{const novos=siteNovos(),resp=SITE.filter(x=>x.status!=='novo').slice(0,12);const link=location.origin+'/pedir';
  return head('Pedidos online','Pedidos feitos pelas clientes na página pública. Ao aceitar, a encomenda entra na agenda; o pedido de Estação vira orçamento para você ajustar e enviar.',`<button class="btn" onclick="copiarTexto('${link}')">${ico('copy')}Copiar link da página</button><a class="btn" href="${link}" target="_blank" rel="noopener">Abrir página</a>`)
- +`<div class="card" style="margin-bottom:16px"><span class="small muted">Link para colocar na bio do Instagram ou enviar às clientes:</span><br><b style="word-break:break-all">${esc(link)}</b><div class="small muted" style="margin-top:6px">A página mostra os produtos marcados como "Aparece no catálogo". Pacotes marcados só como Estação Gourmet aparecem como pedido de orçamento.</div></div>
+ +`<div class="card" style="margin-bottom:16px"><span class="small muted">Link para colocar na bio do Instagram ou enviar às clientes:</span><br><b style="word-break:break-all">${esc(link)}</b><div class="small muted" style="margin-top:6px">A página abre com as categorias dos produtos marcados como "Aparece no catálogo", e a cliente escolhe a que procura. Para mudar o que aparece em cada uma, ajuste a categoria no cadastro do produto. Pacotes marcados só como Estação Gourmet ficam em uma categoria própria, como pedido de orçamento.</div></div>
  <div class="grp">Novos <span>${novos.length}</span></div>${novos.length?novos.map(siteCard).join(''):'<div class="empty">Nenhum pedido novo no momento.</div>'}
  ${resp.length?`<div class="grp" style="margin-top:18px">Já respondidos</div>${resp.map(siteCard).join('')}`:''}`};
+function waLink(fone,texto){let n=String(fone||'').replace(/\D/g,'');if(n.length===10||n.length===11)n='55'+n;return n.length>=12?`https://wa.me/${n}?text=${encodeURIComponent(texto)}`:''}
+function msgSite(x){const d=x.dados||{};const c=CFG();const nome=String(d.nome||'').trim().split(/\s+/)[0]||'';const doc=[...S.pedidos,...S.orcamentos].find(o=>o.origemSite===x.id);const fim=`\n\n${c.empresa}${c.instagram?' · '+c.instagram:''}`;
+ if(x.status==='recusado')return`Olá, ${nome}! Recebemos o seu pedido pelo nosso site, mas infelizmente não vamos conseguir atender${/^\d{4}-\d{2}-\d{2}$/.test(d.data||'')?' no dia '+dBR(d.data):''}. Se quiser, me chama aqui que a gente vê outra data ou outra opção para você.${fim}`;
+ if(doc&&frenteDe(doc)==='estacao')return`Olá, ${nome}! Recebemos o seu pedido de orçamento da Estação Gourmet para ${dBR(doc.dataEntrega)}${doc.endereco?', em '+doc.endereco:''}. Vou preparar o orçamento e te envio por aqui em seguida.${fim}`;
+ if(doc&&S.pedidos.includes(doc)){const t=totaisDoc(doc);const sinal=t.total*CFG().sinalPct/100;
+  return`Olá, ${nome}! Seu pedido #${doc.num} na ${c.empresa} está confirmado.\n\n${doc.modo==='entrega'?'Entrega por Uber':'Retirada'}: ${SEMLONGO[toDate(doc.dataEntrega).getDay()]}, ${dBR(doc.dataEntrega)} às ${doc.hora}${doc.modo==='entrega'&&doc.endereco?`\nEndereço: ${doc.endereco}`:''}\n\n${linhasItens(doc)}\n${doc.frete?`\nEntrega: ${brl(doc.frete)}`:''}\n*Total: ${brl(t.total)}*${doc.modo==='entrega'&&!doc.frete?'\nA taxa do Uber é por sua conta e eu te informo o valor no dia.':''}\n\nPara garantir a data, o sinal é de ${nq(CFG().sinalPct)}% (${brl(sinal)})${c.pix&&c.pix!=='chave Pix da Sweet Ka'?`, pelo Pix ${c.pix}`:''}. O restante fica para a ${doc.modo==='entrega'?'entrega':'retirada'}.${fim}`}
+ return`Olá, ${nome}! Recebemos o seu pedido pelo nosso site e já estamos cuidando dele.${fim}`}
+function botaoWa(x,pri){const l=waLink((x.dados||{}).fone,msgSite(x));return l?`<a class="btn ${pri?'pri':''}" href="${esc(l)}" target="_blank" rel="noopener">Avisar a cliente no WhatsApp</a>`:`<button class="btn" onclick="copiarTexto(msgSite(SITE.find(s=>s.id==='${x.id}')))">${ico('copy')}Copiar mensagem para a cliente</button>`}
+function aposResponder(id){const x=SITE.find(s=>s.id===id);if(!x)return;const doc=[...S.pedidos,...S.orcamentos].find(o=>o.origemSite===id);const rec=x.status==='recusado';const est=doc&&frenteDe(doc)==='estacao';
+ openModal(rec?'Pedido recusado':est?`Orçamento #${doc.num} criado`:`Encomenda #${doc.num} criada`,`<p style="margin:0 0 12px">${rec?'O pedido saiu da lista de novos. Se quiser, avise a cliente:':est?'O orçamento de estação foi criado para você ajustar e enviar. Avise a cliente que o pedido chegou:':'A encomenda já está na agenda, aguardando o sinal. Avise a cliente que o pedido foi confirmado:'}</p>
+ <div class="small" style="background:var(--surface-2);padding:10px 12px;border-radius:8px;white-space:pre-wrap">${esc(msgSite(x))}</div>${!rec&&!est&&doc.modo==='entrega'&&!doc.frete?'<p class="small muted" style="margin:10px 0 0">Para informar a taxa do Uber na mensagem, abra a encomenda, toque em Editar e preencha a taxa de entrega antes de avisar.</p>':''}`,
+ `<button class="btn" onclick="closeModal()">Fechar</button>${doc?`<button class="btn" onclick="closeModal();${est?`verOrc('${doc.id}')`:`verPedido('${doc.id}')`}">${est?'Abrir orçamento':'Abrir encomenda'}</button>`:''}${botaoWa(x,true)}`)}
 async function marcarSite(id,st){const x=SITE.find(s=>s.id===id);if(x)x.status=st;try{const r=await sb.from('pedidos_site').update({status:st}).eq('id',id);if(r.error)throw 0}catch(e){toast('Sem conexão. A situação do pedido será atualizada quando a internet voltar.','bad')}}
-function recusarSite(id){askConfirm('Recusar este pedido? Avise a cliente pelo WhatsApp se quiser explicar o motivo.','Recusar pedido',async()=>{closeModal();await marcarSite(id,'recusado');render();toast('Pedido recusado')},'Voltar')}
+function recusarSite(id){askConfirm('Recusar este pedido? Avise a cliente pelo WhatsApp se quiser explicar o motivo.','Recusar pedido',async()=>{closeModal();await marcarSite(id,'recusado');render();aposResponder(id)},'Voltar')}
 async function aceitarSite(id){
  const x=SITE.find(s=>s.id===id);if(!x||x.status!=='novo')return;const d=x.dados||{};
  if([...S.pedidos,...S.orcamentos].some(o=>o.origemSite===id)){await marcarSite(id,'aceito');render();return toast('Este pedido já tinha sido aceito.')}
@@ -840,7 +853,7 @@ async function aceitarSite(id){
  if(est){novo={...base,id:uid('q'),num:CFG().proxOrc++,frente:'estacao',status:'aberto',sinalPct:CFG().sinalPct,validade:addDias(hoje(),CFG().validade),duracao:3,convidados:Math.max(0,+d.convidados||0)};S.orcamentos.push(novo)}
  else{novo={...base,id:uid('o'),num:CFG().proxPedido++,frente:'encomenda',status:'aguardando_sinal',pagamentos:[],baixado:false};S.pedidos.push(novo)}
  save();await marcarSite(id,'aceito');render();
- if(est){toast(`Orçamento #${novo.num} criado. Ajuste e envie para a cliente.`);verOrc(novo.id)}else{toast(`Encomenda #${novo.num} criada e colocada na agenda.`);verPedido(novo.id)}
+ aposResponder(id);
 }
 function carBanner(){
  const ca=carAberto();
@@ -1175,7 +1188,7 @@ function pedidosView(fr){
  }else if(f==='prontos'){const L=prontos.filter(bate).sort(asc);corpo=L.length?`<div class="list">${L.map(cardPedido).join('')}</div>`:'<div class="empty">Nenhuma encomenda pronta esperando a cliente.</div>'}
  else{const L=fim.filter(bate).sort((a,c)=>c.dataEntrega.localeCompare(a.dataEntrega)).slice(0,40);corpo=L.length?`<div class="list">${L.map(cardPedido).join('')}</div>`:`<div class="empty">${est?'Nenhum evento realizado ainda.':'Nenhuma encomenda finalizada ainda.'}</div>`}
  const tabs=est?[['fazer','Próximas',fazer.length],['fim','Realizadas',0]]:[['fazer','A fazer',fazer.length],['prontos','Prontos',prontos.length],['fim','Finalizados',0]];
- return head(est?'Estação Gourmet':'Encomendas',est?'A estação contratada por algumas horas para servir na festa da cliente. Registre o pacote, a data e o local.':'Toque no botão da encomenda para avançar a etapa, ou na encomenda para ver os detalhes.',`<button class="btn" onclick="editarDoc('orc',null,'${fr}')">${ico('orcamentos')}Orçamento</button><button class="btn pri" onclick="editarDoc('ped',null,'${fr}')">${ico('plus')}${est?'Novo pedido':'Nova encomenda'}</button>`)
+ return head(est?'Estação Gourmet':'Encomendas',est?'A estação contratada por algumas horas para servir na festa da cliente. Registre o pacote, a data e o local.':'Toque no botão da encomenda para avançar a etapa, ou na encomenda para ver os detalhes.',`${est?`<button class="btn" onclick="cardapioEstacao()">${ico('pdf')}Cardápio</button>`:''}<button class="btn" onclick="editarDoc('orc',null,'${fr}')">${ico('orcamentos')}Orçamento</button><button class="btn pri" onclick="editarDoc('ped',null,'${fr}')">${ico('plus')}${est?'Novo pedido':'Nova encomenda'}</button>`)
  +`<div class="tabs">${tabs.map(([k,l,n])=>`<button class="${f===k?'on':''}" onclick="UI.pedFiltro='${k}';render()">${l}${n?` <span class="tabn">${n}</span>`:''}</button>`).join('')}</div>
  <div class="toolbar"><input type="search" class="search" id="ped-busca" placeholder="Buscar por cliente ou tema" value="${esc(UI.pedBusca)}" oninput="UI.pedBusca=this.value;rerenderKeep('ped-busca')"></div>
  ${corpo}`;
@@ -2008,13 +2021,17 @@ async function salvarArquivo(fn,blob){
  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast(ok.replace('salv','baixad'));
 }
 /* ===== Cardápio do carrinho em imagem (Instagram) ===== */
+const pacotesEstacao=()=>S.produtos.filter(p=>p.ativo!==false&&(p.frentes||[]).includes('estacao'));
+function cardapioEstacao(){if(!pacotesEstacao().length)return toast('Cadastre os pacotes em Produtos e preços e marque "Vende em: Estação Gourmet".','bad');
+ openModal('Cardápio da Estação para o Instagram',`<p class="muted small" style="margin:0 0 14px">Gera uma imagem com os pacotes marcados como Estação Gourmet. Escolha o formato.</p>
+ <div class="grid g2"><button class="btn pri" style="padding:16px" onclick="cardapioPNG('feed',true)">Post do feed<br><span class="small" style="font-weight:500">1080 x 1350</span></button><button class="btn pri" style="padding:16px" onclick="cardapioPNG('story',true)">Stories<br><span class="small" style="font-weight:500">1080 x 1920</span></button></div>`,`<button class="btn" onclick="closeModal()">Voltar</button>`)}
 function cardapioCarrinho(){
  if(!carAberto())return toast('Abra o carrinho primeiro.','bad');
  openModal('Cardápio de hoje para o Instagram',`<p class="muted small" style="margin:0 0 14px">Gera uma imagem com os produtos que estão no carrinho agora (os esgotados ficam de fora). Escolha o formato.</p>
  <label class="f" style="margin-bottom:14px">Local da venda (aparece na imagem)<input type="text" id="cd-local" value="${esc(CFG().localCarrinho??'Av. Ernesto Souza Cruz, 642')}" placeholder="Endereço de onde o carrinho vai estar"></label>
  <div class="grid g2"><button class="btn pri" style="padding:16px" onclick="cardapioPNG('feed')">Post do feed<br><span class="small" style="font-weight:500">1080 x 1350</span></button><button class="btn pri" style="padding:16px" onclick="cardapioPNG('story')">Stories<br><span class="small" style="font-weight:500">1080 x 1920</span></button></div>`,`<button class="btn" onclick="closeModal()">Voltar</button>`)}
-async function cardapioPNG(fmt){
- const car=carAberto();if(!car)return;const elL=$('#cd-local');if(elL){const v=elL.value.trim();if(v!==(CFG().localCarrinho??'Av. Ernesto Souza Cruz, 642')||CFG().localCarrinho==null){S.config.localCarrinho=v;save()}}const local=CFG().localCarrinho??'Av. Ernesto Souza Cruz, 642';const res=carResumo(car);let L=res.rows.filter(x=>x.resta>0);if(!L.length)L=res.rows;if(!L.length)return toast('O carrinho está sem produtos.','bad');
+async function cardapioPNG(fmt,est){
+ const car=est?null:carAberto();if(!est&&!car)return;const elL=est?null:$('#cd-local');if(elL){const v=elL.value.trim();if(v!==(CFG().localCarrinho??'Av. Ernesto Souza Cruz, 642')||CFG().localCarrinho==null){S.config.localCarrinho=v;save()}}const local=est?'':CFG().localCarrinho??'Av. Ernesto Souza Cruz, 642';const res=est?null:carResumo(car);let L=est?pacotesEstacao().map(p=>({p:p.id,preco:p.preco})):res.rows.filter(x=>x.resta>0);if(!est&&!L.length)L=res.rows;if(!L.length)return toast('O carrinho está sem produtos.','bad');
  const c=CFG(),W=1080,H=fmt==='story'?1920:1350,FF='"Plus Jakarta Sans",system-ui,sans-serif',GOLD='#94733A',INK='#2A2229',MUT='#766C77',SOFT='#F4ECDD';
  try{await Promise.all(['500','700','800'].map(w=>document.fonts.load(`${w} 30px "Plus Jakarta Sans"`)))}catch(e){}
  const img=src=>new Promise(r=>{if(!src)return r(null);const im=new Image();im.onload=()=>r(im);im.onerror=()=>r(null);im.src=src});
@@ -2027,9 +2044,9 @@ async function cardapioPNG(fmt){
  const M=64;let y=fmt==='story'?210:70;
  if(logo){let h=150,w=h*logo.width/logo.height;if(w>520){w=520;h=w*logo.height/logo.width}x.drawImage(logo,(W-w)/2,y,w,h);y+=h+44}
  else{x.fillStyle=GOLD;x.textAlign='center';f(800,84);x.fillText(c.marca||c.empresa||'Sweet Ka',W/2,y+78);y+=100;const sub=c.marcaSub??'CONFEITARIA';if(sub){f(700,24);sp(sub,W/2,y+22,7);y+=30}y+=44}
- x.fillStyle=GOLD;f(700,28);sp('Carrinho de hoje',W/2,y,8);y+=66;
- const d=toDate(car.abertura.slice(0,10));const dia=SEMLONGO[d.getDay()];
- x.fillStyle=INK;x.textAlign='center';f(800,62);x.fillText(`${dia[0].toUpperCase()+dia.slice(1)}, ${d.getDate()} de ${MESES[d.getMonth()]}`,W/2,y);y+=34;
+ x.fillStyle=GOLD;f(700,28);sp(est?'Estação Gourmet':'Carrinho de hoje',W/2,y,8);y+=66;
+ const d=est?new Date():toDate(car.abertura.slice(0,10));const dia=SEMLONGO[d.getDay()];
+ x.fillStyle=INK;x.textAlign='center';f(800,62);x.fillText(est?'Leve para a sua festa':`${dia[0].toUpperCase()+dia.slice(1)}, ${d.getDate()} de ${MESES[d.getMonth()]}`,W/2,y);y+=34;
  x.strokeStyle=GOLD;x.lineWidth=2;x.beginPath();x.moveTo(W/2-60,y);x.lineTo(W/2+60,y);x.stroke();y+=40;
  const FOOT=(fmt==='story'?330:170)+(local?50:0),top=y,areaH=H-FOOT-top,n=L.length,G=22;
  let cols=n<=4?1:n<=12?2:3,rowsN=Math.ceil(n/cols);if(cols===1&&(areaH-G*(rowsN-1))/rowsN<150){cols=2;rowsN=Math.ceil(n/cols)}
@@ -2044,11 +2061,11 @@ async function cardapioPNG(fmt){
   else{x.fillStyle=SOFT;x.fill();x.fillStyle=GOLD;x.textAlign='center';f(800,ph*0.42);x.fillText((p.nome.trim()[0]||'?').toUpperCase(),px+ph/2,py+ph/2+ph*0.15)}
   x.restore();
   const tx=px+ph+pad*0.9,tw=bx+cw-pad-tx;x.textAlign='left';f(700,fn);const ls=wrap(p.nome,tw,ch>=150?3:2),lh=fn*1.2,bh=ls.length*lh+fp*1.25;let ty=by+(ch-bh)/2+fn*0.9;
-  x.fillStyle=INK;ls.forEach(l=>{x.fillText(l,tx,ty);ty+=lh});x.fillStyle=GOLD;f(800,fp);x.fillText(brl(it.preco),tx,ty+fp*0.2)});
- const fy=H-FOOT+48;x.textAlign='center';x.fillStyle=INK;f(700,32);x.fillText('Passe aqui e garanta o seu',W/2,fy+10);
+  x.fillStyle=INK;ls.forEach(l=>{x.fillText(l,tx,ty);ty+=lh});x.fillStyle=GOLD;f(800,fp);x.fillText((est?'a partir de ':'')+brl(it.preco),tx,ty+fp*0.2)});
+ const fy=H-FOOT+48;x.textAlign='center';x.fillStyle=INK;f(700,32);x.fillText(est?'Peça o seu orçamento':'Passe aqui e garanta o seu',W/2,fy+10);
  let fy2=fy;if(local){x.fillStyle=GOLD;f(800,32);x.fillText(wrap(local,W-2*M,1)[0],W/2,fy+58);fy2+=50}
  const ct=[c.instagram,c.whatsapp?'WhatsApp '+c.whatsapp:''].filter(Boolean).join('   ·   ');if(ct){x.fillStyle=MUT;f(500,26);x.fillText(ct,W/2,fy2+54)}
- cv.toBlob(b=>{closeModal();salvarArquivo(`Carrinho-${car.abertura.slice(0,10)}-${fmt==='story'?'stories':'feed'}.png`,b)},'image/png');
+ cv.toBlob(b=>{closeModal();salvarArquivo(`${est?'Estacao-Gourmet':'Carrinho-'+car.abertura.slice(0,10)}-${fmt==='story'?'stories':'feed'}.png`,b)},'image/png');
 }
 function importar(txt){try{const o=JSON.parse(txt);if(!o||!o.insumos||!o.produtos||!o.config)throw 0;askConfirm('Substituir todos os dados atuais pelo backup?','Restaurar',()=>{S=o;save();closeModal();go('painel');toast('Backup restaurado')},'Voltar')}catch(e){toast('Esse texto não é um backup válido do sistema.','bad')}}
 function lerArquivo(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>importar(r.result);r.readAsText(f)}

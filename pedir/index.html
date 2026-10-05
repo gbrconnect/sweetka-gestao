@@ -60,6 +60,14 @@ textarea{min-height:76px;resize:vertical}
 .res ul{list-style:none;margin:6px 0 0;padding:0}
 .note{font-size:13px;color:var(--muted);margin-top:8px}
 .err{color:var(--bad);font-size:13.5px;margin-top:10px;font-weight:600}
+.cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.catb{font:inherit;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;display:grid;grid-template-columns:74px minmax(0,1fr) auto;gap:14px;align-items:center;cursor:pointer;color:var(--ink)}
+.catb:hover{border-color:var(--gold)}
+.catb b{display:block;font-size:17px}
+.catb .d{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.catb .go{font-size:26px;color:var(--gold)}
+.tag{display:inline-block;margin-top:6px;background:var(--soft);color:var(--gold-d);font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px}
+.back{font:inherit;font-weight:700;color:var(--gold-d);background:none;border:0;padding:6px 0;margin-top:14px;cursor:pointer}
 .center{text-align:center;padding:60px 16px;color:var(--muted)}
 .ok{width:64px;height:64px;border-radius:50%;background:var(--gold);color:#fff;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 14px}
 footer{text-align:center;color:var(--muted);font-size:13px;margin-top:34px}
@@ -81,7 +89,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const brl=v=>(+v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const fotoOk=f=>/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(f||'');
-let sb=null,LOJA=null,V=null,Q={},enviando=false;
+let sb=null,LOJA=null,V=null,Q={},enviando=false,VIEW=null;const EST='\u0000estacao';
 const prods=()=>(V&&Array.isArray(V.produtos)?V.produtos:[]);
 const sel=tipo=>prods().filter(p=>p.tipo===tipo&&Q[p.id]>0);
 const total=()=>sel('encomenda').reduce((s,p)=>s+Q[p.id]*p.preco,0);
@@ -95,12 +103,21 @@ function card(p){const q=Q[p.id]||0;const est=p.tipo==='estacao';
  <div class="row"><span class="v">${est?'a partir de ':''}${brl(p.preco)}</span>
  ${est?`<button class="btn ${q?'sel':''}" data-est="${esc(p.id)}">${q?'Selecionado':'Quero orçamento'}</button>`
  :`<span class="qt"><button data-m="${esc(p.id)}" aria-label="Menos">−</button><input type="number" inputmode="numeric" min="0" max="5000" value="${q||''}" placeholder="0" data-q="${esc(p.id)}" aria-label="Quantidade de ${esc(p.nome)}"><button data-a="${esc(p.id)}" aria-label="Mais">+</button></span>`}</div></div></div>`}
-function lista(){const enc=prods().filter(p=>p.tipo==='encomenda'),est=prods().filter(p=>p.tipo==='estacao');
- if(!enc.length&&!est.length){$('#main').innerHTML='<div class="center">O catálogo está sendo atualizado. Volte em breve.</div>';return}
- const cats=[...new Set(enc.map(p=>p.cat||'Produtos'))];
- $('#main').innerHTML=(enc.length?`<h2>Encomendas</h2><p class="h2s">Informe a quantidade de cada produto.</p>${cats.map(c=>`${cats.length>1?`<div class="cat">${esc(c)}</div>`:''}<div class="grid">${enc.filter(p=>(p.cat||'Produtos')===c).map(card).join('')}</div>`).join('')}`:'')
-  +(est.length?`<h2>Estação Gourmet</h2><p class="h2s">Nossa estação vai até a sua festa e serve os convidados por algumas horas. Selecione o pacote para receber um orçamento.</p><div class="grid">${est.map(card).join('')}</div>`:'');
+const catDe=p=>p.tipo==='estacao'?EST:(p.cat||'Produtos');
+function cats(){const m=new Map();for(const p of prods()){const k=catDe(p);if(!m.has(k))m.set(k,[]);m.get(k).push(p)}const a=[...m.entries()].filter(([k])=>k!==EST).sort((x,y)=>x[0].localeCompare(y[0],'pt-BR'));if(m.has(EST))a.push([EST,m.get(EST)]);return a}
+const nomeCat=k=>k===EST?'Estação Gourmet':k;
+function lista(){const cs=cats();
+ if(!cs.length){$('#main').innerHTML='<div class="center">O catálogo está sendo atualizado. Volte em breve.</div>';return}
+ if(cs.length===1)VIEW=cs[0][0];
+ if(VIEW==null||!cs.find(c=>c[0]===VIEW)){VIEW=null;
+  $('#main').innerHTML=`<h2>O que você procura?</h2><p class="h2s">Escolha uma categoria para ver os produtos.</p><div class="cats">${cs.map(([k,ps],i)=>{const f=ps.find(x=>fotoOk(x.foto));const n=ps.filter(x=>Q[x.id]>0).length;
+   return`<button class="catb" data-cat="${i}"><span class="ft">${f?`<img src="${f.foto}" alt="">`:esc(nomeCat(k).trim()[0]||'?').toUpperCase()}</span><span class="ct"><b>${esc(nomeCat(k))}</b><span class="d">${k===EST?'A estação vai até a sua festa. Peça um orçamento.':ps.length+(ps.length===1?' produto':' produtos')}</span>${n?`<span class="tag">${n} no pedido</span>`:''}</span><span class="go">›</span></button>`}).join('')}</div>`;
+  barra();return}
+ const ps=cs.find(c=>c[0]===VIEW)[1];const est=VIEW===EST;
+ $('#main').innerHTML=(cs.length>1?`<button class="back" id="volta">‹ Todas as categorias</button>`:'')+`<h2>${esc(nomeCat(VIEW))}</h2><p class="h2s">${est?'Nossa estação vai até a sua festa e serve os convidados por algumas horas. Selecione o pacote para receber um orçamento.':'Informe a quantidade de cada produto.'}</p><div class="grid">${ps.map(card).join('')}</div>`;
+ const v=$('#volta');if(v)v.onclick=()=>{VIEW=null;lista();window.scrollTo(0,0)};
  barra()}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-cat]');if(!t)return;VIEW=cats()[+t.dataset.cat][0];lista();window.scrollTo(0,0)});
 function barra(){const ne=sel('encomenda'),ns=sel('estacao');const n=ne.length+ns.length;$('#bar').hidden=!n;if(!n)return;
  const un=ne.reduce((s,p)=>s+Q[p.id],0);
  $('#bar-t').innerHTML=ne.length?`${un} ${un===1?'unidade':'unidades'}${ns.length?' + orçamento de estação':''}<b>${brl(total())}</b>`:`Orçamento de Estação Gourmet<b>${ns.length} ${ns.length===1?'pacote':'pacotes'}</b>`}
@@ -144,7 +161,7 @@ async function enviar(){if(enviando)return;const ne=sel('encomenda'),ns=sel('est
  catch(e){enviando=false;b.disabled=false;b.textContent='Enviar pedido';erro('Não foi possível enviar agora. Verifique a internet e tente de novo'+(V&&V.whatsapp?', ou fale com a gente pelo WhatsApp '+V.whatsapp:'')+'.')}}
 function fim(){Q={};enviando=false;$('#bar').hidden=true;$('#ov').innerHTML='';window.scrollTo(0,0);
  $('#main').innerHTML=`<div class="center"><div class="ok">✓</div><h3 style="color:var(--ink);margin:0 0 8px;font-size:22px">Pedido enviado</h3><p style="max-width:420px;margin:0 auto 18px">Recebemos o seu pedido. Em breve entramos em contato pelo WhatsApp para confirmar a data, o valor final e a forma de pagamento.</p><button class="btn" id="novo">Fazer outro pedido</button></div>`;
- $('#novo').onclick=lista}
+ $('#novo').onclick=()=>{VIEW=null;lista()}}
 (async()=>{
  if(!window.supabase||!/^https:/.test(SB_URL)){$('#main').innerHTML='<div class="center">Não foi possível carregar a página. Verifique a internet e tente de novo.</div>';return}
  sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:false,autoRefreshToken:false,storageKey:'sk-pedir'}});
