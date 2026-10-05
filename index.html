@@ -394,6 +394,7 @@ details.inner[open] summary{margin-bottom:10px}
 /* iPhone aproxima a tela ao tocar em campo com letra menor que 16px */
 @media (pointer:coarse){input,select,textarea{font-size:16px!important}}
 a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+.exp{display:inline-flex;gap:6px}.exp .btn{color:var(--muted)}
 </style>
 
 </head>
@@ -741,7 +742,7 @@ function menuMais(){
 }
 function go(id){if(!PAGES.find(p=>p.id===id)||!vePagina(id))id='painel';PAGE=id;if(location.hash!=='#'+id){try{history.replaceState(null,'','#'+id)}catch(e){}}render();window.scrollTo(0,0)}
 function render(){renderNav();const f=R[PAGE]||R.painel;$('#main').innerHTML=f()}
-function head(t,sub,acts=''){return`<div class="pagehead"><div><h1>${t}</h1>${sub?`<p>${sub}</p>`:''}</div><div class="actions">${acts}</div></div>`}
+function head(t,sub,acts=''){const ex=EXP[PAGE]?`<span class="exp"><button class="btn sm" onclick="exportar('xlsx')" title="Baixar esta página em Excel">Excel</button><button class="btn sm" onclick="exportar('pdf')" title="Baixar esta página em PDF">PDF</button></span>`:'';return`<div class="pagehead"><div><h1>${t}</h1>${sub?`<p>${sub}</p>`:''}</div><div class="actions">${acts}${ex}</div></div>`}
 
 /* ============ alertas ============ */
 function alertas(){
@@ -1954,6 +1955,94 @@ function salvarCfg(){const c=CFG();c.custoMetodo=$('#cf-custoMetodo').value;for(
  c.taxa=c.taxaCredito;if(c.margemAlvo+c.imposto+c.taxaCredito>=100)return toast('Margem, impostos e taxas somados precisam ficar abaixo de 100%.','bad');
  for(const k of['empresa','instagram','whatsapp','marca','marcaSub','pix','agradecimento'])c[k]=$('#cf-'+k).value.trim();save();render();toast('Configurações salvas')}
 
+/* ============ EXPORTAR PÁGINA (Excel e PDF) ============ */
+const EXP={};
+const xPed=fr=>{const est=fr==='estacao';const L=S.pedidos.filter(p=>frenteDe(p)===fr).sort((a,b)=>b.dataEntrega.localeCompare(a.dataEntrega));const at=L.filter(ativo);
+ return{titulo:est?'Estação Gourmet':'Encomendas',kpis:[['Em andamento',at.length,'num'],['Valor em andamento',at.reduce((s,p)=>s+totaisDoc(p).total,0),'brl'],['A receber',L.filter(p=>p.status!=='cancelado').reduce((s,p)=>s+Math.max(0,totaisDoc(p).saldo),0),'brl']],
+ tabelas:[{nome:est?'Estação':'Encomendas',cols:[['Nº','num'],['Cliente','txt'],['Ocasião','txt'],['Data','txt'],['Hora','txt'],['Situação','txt'],...(est?[['Horas','num'],['Convidados','num'],['Local','txt']]:[['Forma','txt']]),['Itens','txt'],['Total','brl'],['Pago','brl'],['Saldo','brl']],
+  rows:L.map(p=>{const t=totaisDoc(p);return[p.num,nomeCli(p.cliente),p.titulo||'',dBR(p.dataEntrega),p.hora,(est?STE:STP)[p.status]||p.status,...(est?[p.duracao||0,p.convidados||0,p.endereco||'']:[p.modo==='entrega'?'Entrega':'Retirada']),p.itens.map(x=>`${nq(x.q)} ${(getProd(x.p)||{}).nome||'?'}`).join('; '),t.total,t.pago,t.saldo]})}]}};
+EXP.pedidos=()=>xPed('encomenda');EXP.estacao=()=>xPed('estacao');
+EXP.painel=()=>{const k=hoje().slice(0,7),rf=recFrente(k),T=hoje();const prox=S.pedidos.filter(p=>ativo(p)&&p.dataEntrega>=T).sort((a,b)=>(a.dataEntrega+a.hora).localeCompare(b.dataEntrega+b.hora));
+ return{titulo:'Resumo geral',sub:mesLabel(k),kpis:[['Carrinho no mês',rf.carrinho,'brl'],['Estação Gourmet no mês',rf.estacao,'brl'],['Encomendas no mês',rf.encomenda,'brl'],['Total vendido no mês',rf.carrinho+rf.estacao+rf.encomenda,'brl'],['Clientes cadastradas',S.clientes.length,'num']],
+ tabelas:[{nome:'Próximos pedidos',cols:[['Nº','num'],['Frente','txt'],['Cliente','txt'],['Data','txt'],['Hora','txt'],['Situação','txt'],['Total','brl'],['Saldo','brl']],rows:prox.map(p=>{const t=totaisDoc(p);return[p.num,FR_CURTO[frenteDe(p)],nomeCli(p.cliente),dBR(p.dataEntrega),p.hora,STP[p.status],t.total,t.saldo]})}]}};
+EXP.carrinho=()=>{const cs=[...(S.carrinhos||[])].sort((a,b)=>b.abertura.localeCompare(a.abertura));const R_=cs.map(c=>({c,r:carResumo(c)}));const k=hoje().slice(0,7);const m=R_.filter(x=>x.c.abertura.slice(0,7)===k);
+ return{titulo:'Carrinho',sub:mesLabel(k),kpis:[['Noites no mês',m.length,'num'],['Total vendido no mês',m.reduce((s,x)=>s+x.r.total,0),'brl'],['Repasse no mês',m.reduce((s,x)=>s+x.r.rep,0),'brl'],['Vendas da loja no mês',m.reduce((s,x)=>s+x.r.rec,0),'brl'],['Lucro estimado no mês',m.reduce((s,x)=>s+x.r.lucro,0),'brl']],
+ tabelas:[{nome:'Noites',cols:[['Data','txt'],['Abertura','txt'],['Fechamento','txt'],['Saiu','num'],['Vendidos','num'],['Aproveitamento','pct'],['Total vendido','brl'],['Repasse','brl'],['Da loja','brl'],['Pix','brl'],['Dinheiro','brl'],['Débito','brl'],['Crédito','brl'],['Lucro','brl'],['Diferença de caixa','brl']],
+  rows:R_.map(({c,r})=>[dBR(c.abertura.slice(0,10)),c.abertura.slice(11,16),(c.fechamento||'').slice(11,16)||'aberto',r.saiu,r.vend,r.saiu?r.vend/r.saiu:0,r.total,r.rep,r.rec,r.porForma.Pix||0,r.porForma.Dinheiro||0,r.porForma['Débito']||0,r.porForma['Crédito']||0,r.lucro,c.difCaixa||0])},
+ {nome:'Vendas',cols:[['Data','txt'],['Hora','txt'],['Itens','txt'],['Forma','txt'],['Desconto','brl'],['Total','brl']],rows:cs.flatMap(c=>c.vendas.map(v=>[dBR(v.data),v.hora,v.itens.map(x=>`${nq(x.q)} ${(getProd(x.p)||{}).nome||'?'}`).join('; '),formaCar(v.forma),v.desconto||0,v.total])).slice(0,3000)}]}};
+EXP.orcamentos=()=>{const L=[...S.orcamentos].sort((a,b)=>b.criado.localeCompare(a.criado));return{titulo:'Orçamentos',kpis:[['Em aberto',L.filter(o=>['aberto','enviado'].includes(o.status)).length,'num'],['Valor em negociação',L.filter(o=>['aberto','enviado'].includes(o.status)).reduce((s,o)=>s+totaisDoc(o).total,0),'brl']],
+ tabelas:[{nome:'Orçamentos',cols:[['Nº','num'],['Frente','txt'],['Cliente','txt'],['Ocasião','txt'],['Data do evento','txt'],['Situação','txt'],['Criado em','txt'],['Válido até','txt'],['Total','brl']],rows:L.map(o=>[o.num,FR_CURTO[frenteDe(o)],nomeCli(o.cliente),o.titulo||'',dBR(o.dataEntrega),STO[o.status]||o.status,dBR(o.criado),o.validade?dBR(o.validade):'',totaisDoc(o).total])}]}};
+EXP.clientes=()=>({titulo:'Clientes',kpis:[['Clientes cadastradas',S.clientes.length,'num']],tabelas:[{nome:'Clientes',cols:[['Nome','txt'],['WhatsApp','txt'],['Observações','txt'],['Pedidos','num'],['Total comprado','brl'],['Último pedido','txt']],
+ rows:[...S.clientes].sort((a,b)=>a.nome.localeCompare(b.nome)).map(c=>{const ps=S.pedidos.filter(p=>p.cliente===c.id&&p.status!=='cancelado');const u=ps.map(p=>p.dataEntrega).sort().pop();return[c.nome,c.fone||'',c.obs||'',ps.length,ps.reduce((s,p)=>s+totaisDoc(p).total,0),u?dBR(u):'']})}]});
+EXP.produtos=()=>({titulo:'Produtos e preços',kpis:[['Produtos ativos',S.produtos.filter(p=>p.ativo!==false).length,'num']],tabelas:[{nome:'Produtos',cols:[['Produto','txt'],['Categoria','txt'],['Vende em','txt'],['Repasse para','txt'],['Custo','brl'],['Preço','brl'],['Margem','pct'],['Preço sugerido','brl'],['No catálogo','txt'],['Ativo','txt']],
+ rows:S.produtos.map(p=>{const c=custoProduto(p);return[p.nome,p.cat||'',(p.frentes||[]).map(f=>FR_CURTO[f]).join(', ')||'Todas',p.repasse?(p.parceiro||'Parceiro'):'',c.total,p.preco,p.repasse?0:margem(p.preco,c.total),p.repasse?0:precoSugerido(c.total),noCatalogo(p)?'Sim':'Não',p.ativo!==false?'Sim':'Não']})}]});
+EXP.insumos=()=>({titulo:'Insumos e estoque',tabelas:[{nome:'Insumos',cols:[['Insumo','txt'],['Categoria','txt'],['Unidade','txt'],['Estoque','num'],['Mínimo','num'],['Custo por unidade','brl'],['Valor em estoque','brl'],['Fornecedor','txt']],rows:S.insumos.map(i=>[i.nome,i.cat||'',i.un||'',i.estoque||0,i.minimo||0,custoUnitIns(i),(i.estoque||0)*custoUnitIns(i),i.fornecedor||''])}]});
+EXP.agenda=()=>{const k=UI.agMes||hoje().slice(0,7);const L=S.pedidos.filter(p=>p.status!=='cancelado'&&p.dataEntrega.slice(0,7)===k).sort((a,b)=>(a.dataEntrega+a.hora).localeCompare(b.dataEntrega+b.hora));
+ return{titulo:'Agenda',sub:mesLabel(k),kpis:[['Pedidos no mês',L.length,'num']],tabelas:[{nome:'Agenda',cols:[['Data','txt'],['Dia','txt'],['Hora','txt'],['Frente','txt'],['Cliente','txt'],['Ocasião','txt'],['Situação','txt'],['Itens','txt'],['Total','brl']],rows:L.map(p=>[dBR(p.dataEntrega),SEMLONGO[toDate(p.dataEntrega).getDay()],p.hora,FR_CURTO[frenteDe(p)],nomeCli(p.cliente),p.titulo||'',(frenteDe(p)==='estacao'?STE:STP)[p.status],p.itens.map(x=>`${nq(x.q)} ${(getProd(x.p)||{}).nome||'?'}`).join('; '),totaisDoc(p).total])}]}};
+EXP.online=()=>({titulo:'Pedidos online',tabelas:[{nome:'Pedidos online',cols:[['Recebido em','txt'],['Situação','txt'],['Tipo','txt'],['Cliente','txt'],['WhatsApp','txt'],['Para quando','txt'],['Entrega','txt'],['Itens','txt'],['Observações','txt']],rows:SITE.map(x=>{const d=x.dados||{};return[dBR(String(x.criado_em||'').slice(0,10)||hoje()),x.status,d.tipo==='estacao'?'Estação':'Encomenda',String(d.nome||''),String(d.fone||''),/^\d{4}-\d{2}-\d{2}$/.test(d.data||'')?dBR(d.data):'',d.modo==='entrega'?String(d.endereco||'Entrega'):'Retirada',(Array.isArray(d.itens)?d.itens:[]).map(i=>`${nq(+i.q||0)} ${(getProd(i.p)||{}).nome||i.nome||'?'}`).join('; '),String(d.obs||'')]})}]});
+EXP.financeiro=()=>{const k=UI.finMes||hoje().slice(0,7);const d=dreMes(k),rf=recFrente(k),cx=caixaMes(k);const rec=S.pedidos.filter(p=>p.status!=='cancelado'&&totaisDoc(p).saldo>0.009);const rp=repasses(k+'-01',k+'-31'),rpt=repasses('0000-01-01','9999-12-31');const T=[];
+ if(modOn('analise'))T.push({nome:'Resultado',cols:[['Linha','txt'],['Valor','brl'],['% da receita','pct']],rows:[['Receita de vendas',d.rec],['Encomendas',d.recEnc-d.recEst],['Estação Gourmet',d.recEst],['Carrinho',d.recCar],['(-) Impostos sobre venda',-d.imp],['(-) Taxas de cartão',-d.tx],['(-) Custo dos produtos vendidos e perdas',-d.mat],['Margem de contribuição',d.mc],['(-) Despesas do mês',-d.dsp],['Resultado antes do pró-labore',d.res],['(-) Pró-labore',-d.pl],['(-) Mão de obra pelas horas',-d.mo],['Resultado do mês',d.final],['Ponto de equilíbrio',d.pe||0]].map(r=>[r[0],r[1],d.rec>0?r[1]/d.rec:0])});
+ T.push({nome:'Entradas e saídas',cols:[['Data','txt'],['Descrição','txt'],['Categoria','txt'],['Entrada','brl'],['Saída','brl']],rows:cx.map(x=>[dBR(x.data),x.desc,x.cat,x.tipo==='entrada'?x.valor:0,x.tipo==='entrada'?0:x.valor])});
+ T.push({nome:'A receber',cols:[['Nº','num'],['Cliente','txt'],['Entrega','txt'],['Situação','txt'],['Total','brl'],['Pago','brl'],['Saldo','brl']],rows:rec.map(p=>{const t=totaisDoc(p);return[p.num,nomeCli(p.cliente),dBR(p.dataEntrega),STP[p.status],t.total,t.pago,t.saldo]})});
+ if(temRepasse())T.push({nome:'Repasses',cols:[['Parceiro','txt'],['Unidades no mês','num'],['Vendido no mês','brl'],['Pago no mês','brl'],['Saldo total a repassar','brl']],rows:[...new Set([...Object.keys(rp),...Object.keys(rpt)])].map(n=>[n,(rp[n]||{}).un||0,(rp[n]||{}).vend||0,(rp[n]||{}).pago||0,((rpt[n]||{}).vend||0)-((rpt[n]||{}).pago||0)])});
+ return{titulo:'Financeiro',sub:mesLabel(k),kpis:[['Carrinho',rf.carrinho,'brl'],['Estação Gourmet',rf.estacao,'brl'],['Encomendas',rf.encomenda,'brl'],['Total vendido',rf.carrinho+rf.estacao+rf.encomenda,'brl'],['A receber',rec.reduce((s,p)=>s+totaisDoc(p).saldo,0),'brl'],['Repasse no mês',Object.values(rp).reduce((s,x)=>s+x.vend,0),'brl']],tabelas:T}};
+EXP.painelFin=()=>{const k=hoje().slice(0,7);const ms=[];for(let i=11;i>=0;i--){const mk=addMes(k,-i);const rf=recFrente(mk),d=dreMes(mk);ms.push([mesLabel(mk),rf.carrinho,rf.estacao,rf.encomenda,d.rec,d.mc,d.dsp+d.pl,d.final])}const d=dreMes(k);
+ return{titulo:'Painel financeiro',sub:mesLabel(k),kpis:[['Faturamento do mês',d.rec,'brl'],['Margem de contribuição',d.mcp,'pct'],['Resultado do mês',d.final,'brl'],['Ponto de equilíbrio',d.pe||0,'brl']],tabelas:[{nome:'Últimos 12 meses',cols:[['Mês','txt'],['Carrinho','brl'],['Estação','brl'],['Encomendas','brl'],['Faturamento','brl'],['Margem de contribuição','brl'],['Despesas e pró-labore','brl'],['Resultado','brl']],rows:ms}]}};
+EXP.relatorios=()=>{const T=hoje(),k=T.slice(0,7);const per={mes:['Este mês',k+'-01',T],tri:['Últimos 3 meses',addMes(k,-2)+'-01',T],ano:['Últimos 12 meses',addMes(k,-11)+'-01',T]};const[lbl,de,ate]=per[UI.relPer]||per.mes;const fr=UI.relFr||'tudo';const agg={};
+ const add=(pid,q,v,tx)=>{const pr=getProd(pid);if(!pr||pr.repasse)return;const a=agg[pid]=agg[pid]||{q:0,r:0,l:0};a.q+=q;a.r+=v;a.l+=v*(1-CFG().imposto/100-tx)-q*custoProduto(pr).total};
+ if(fr!=='carrinho')for(const p of S.pedidos)if(p.status==='entregue'&&p.dataEntrega>=de&&p.dataEntrega<=ate&&(fr==='tudo'||frenteDe(p)===fr))for(const x of p.itens)add(x.p,x.q,x.q*x.v,txC()/100);
+ if(fr==='tudo'||fr==='carrinho')for(const{v}of vendasCarrinhoPeriodo(de,ate))for(const x of v.itens)add(x.p,x.q,x.q*x.v,taxaForma(v.forma)/100);
+ const rows=Object.entries(agg).map(([id,a])=>({p:getProd(id),...a})).sort((a,b)=>b.r-a.r);const tot=rows.reduce((s,r)=>s+r.r,0);
+ return{titulo:'Relatórios',sub:`${lbl} · ${fr==='tudo'?'todas as frentes':FRENTES[fr]}`,kpis:[['Faturamento',tot,'brl'],['Lucro estimado',rows.reduce((s,r)=>s+r.l,0),'brl']],tabelas:[{nome:'Produtos',cols:[['Produto','txt'],['Categoria','txt'],['Quantidade','num'],['Faturamento','brl'],['% do total','pct'],['Lucro','brl'],['Margem','pct']],rows:rows.map(r=>[r.p.nome,r.p.cat||'',r.q,r.r,tot?r.r/tot:0,r.l,r.r?r.l/r.r:0])}]}};
+const xFmt=(v,t)=>t==='brl'?brl(+v||0):t==='pct'?pct(+v||0):t==='num'?nq(+v||0):String(v??'');
+function exportar(tipo){const fn=EXP[PAGE];if(!fn)return;let sp;try{sp=fn()}catch(e){return toast('Não foi possível montar o arquivo desta página.','bad')}
+ const nome=`${semAcento(sp.titulo)}-${semAcento(CFG().marca||'loja')}-${hoje()}`;
+ if(tipo==='xlsx')return salvarArquivo(nome+'.xlsx',xlsxBlob(sp));
+ if(!window.jspdf||!window.jspdf.jsPDF)return toast('O gerador de PDF não carregou. Verifique a internet e tente de novo.','bad');
+ salvarArquivo(nome+'.pdf',pdfTabelas(sp))}
+function pdfTabelas(sp){const larg=Math.max(...sp.tabelas.map(t=>t.cols.length),1)>7;const doc=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:larg?'landscape':'portrait'});const W=larg?297:210,H=larg?210:297,M=12,R=W-M;let y=0;
+ const tc=a=>doc.setTextColor(a[0],a[1],a[2]);const font=(st,sz,cor)=>{doc.setFont('helvetica',st);doc.setFontSize(sz);tc(cor||PC.ink)};
+ const cab=()=>{doc.setFillColor(...PC.gold);doc.rect(0,0,W,2.2,'F');font('bold',14,PC.gold);doc.text(CFG().marca||CFG().empresa||'',M,13);font('bold',12,PC.ink);doc.text(sp.titulo,R,12,{align:'right'});font('normal',8.5,PC.muted);doc.text([sp.sub,'emitido em '+dBR(hoje())].filter(Boolean).join(' · '),R,17,{align:'right'});doc.setDrawColor(...PC.line);doc.setLineWidth(0.3);doc.line(M,20,R,20);y=27};
+ cab();
+ if(sp.kpis&&sp.kpis.length){const n=Math.min(sp.kpis.length,larg?6:4),bw=(R-M-(n-1)*3)/n;sp.kpis.forEach((kp,i)=>{const c=i%n;if(i&&c===0)y+=16;const x=M+c*(bw+3);doc.setFillColor(...PC.lilacSoft);doc.roundedRect(x,y,bw,13,2,2,'F');font('normal',7,PC.muted);doc.text(doc.splitTextToSize(kp[0],bw-4)[0],x+2.5,y+4.8);font('bold',10.5,PC.ink);doc.text(xFmt(kp[1],kp[2]),x+2.5,y+10.4)});y+=19}
+ for(const t of sp.tabelas){const nc=t.cols.length;const num=t.cols.map(c=>c[1]!=='txt');doc.setFontSize(7.6);
+  const w=t.cols.map((c,j)=>{doc.setFont('helvetica','bold');let m=doc.getTextWidth(c[0]);doc.setFont('helvetica','normal');for(const r of t.rows.slice(0,150))m=Math.max(m,Math.min(doc.getTextWidth(xFmt(r[j],c[1])),num[j]?40:70));return m+4});
+  const tot=w.reduce((a,b)=>a+b,0),fat=(R-M)/tot;const cw=w.map(x=>x*fat);const fs=fat<1?Math.max(5.6,7.6*fat):7.6;
+  if(y>H-40){doc.addPage();cab()}font('bold',9,PC.gold);doc.text(t.nome.toUpperCase(),M,y,{charSpace:0.4});y+=4;
+  const hd=()=>{doc.setFillColor(...PC.goldSoft);doc.rect(M,y,R-M,6.4,'F');font('bold',fs,PC.ink);let x=M;t.cols.forEach((c,j)=>{doc.text(doc.splitTextToSize(c[0],cw[j]-2)[0],num[j]?x+cw[j]-1.5:x+1.5,y+4.3,{align:num[j]?'right':'left'});x+=cw[j]});y+=6.4};hd();
+  if(!t.rows.length){font('normal',fs,PC.muted);doc.text('Nenhum registro.',M+1.5,y+4.5);y+=8}
+  t.rows.forEach((r,ri)=>{font('normal',fs,PC.ink);const cel=r.map((v,j)=>doc.splitTextToSize(xFmt(v,t.cols[j][1]),cw[j]-3).slice(0,3));const h=Math.max(...cel.map(c=>c.length))*(fs*0.42)+2.6;
+   if(y+h>H-12){doc.addPage();cab();hd();font('normal',fs,PC.ink)}if(ri%2){doc.setFillColor(250,248,244);doc.rect(M,y,R-M,h,'F')}
+   let x=M;cel.forEach((c,j)=>{doc.text(c,num[j]?x+cw[j]-1.5:x+1.5,y+fs*0.42+1,{align:num[j]?'right':'left'});x+=cw[j]});y+=h});
+  y+=8}
+ const np=doc.getNumberOfPages();for(let i=1;i<=np;i++){doc.setPage(i);font('normal',7,PC.muted);doc.text(`${CFG().empresa||''} · ${sp.titulo}`,M,H-6);doc.text(`${i}/${np}`,R,H-6,{align:'right'})}
+ return doc.output('blob')}
+/* planilha .xlsx escrita direto no navegador (sem biblioteca externa) */
+function xlsxBlob(sp){const X=t=>String(t??'').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+ const col=n=>{let r='';n++;while(n>0){const m=(n-1)%26;r=String.fromCharCode(65+m)+r;n=Math.floor((n-1)/26)}return r};
+ const ST={txt:0,head:1,brl:2,pct:3,num:4,tit:5};
+ const cel=(v,t,r,c)=>{const ref=col(c)+(r+1);if(t==='txt'||t==='head'||t==='tit'||typeof v!=='number'||!isFinite(v))return`<c r="${ref}" s="${ST[t==='head'||t==='tit'?t:'txt']}" t="inlineStr"><is><t xml:space="preserve">${X(v)}</t></is></c>`;return`<c r="${ref}" s="${ST[t]||0}"><v>${+v.toFixed(6)}</v></c>`};
+ const folha=(linhas,larg)=>`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>${larg.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${linhas.map((l,r)=>`<row r="${r+1}">${l.map((c,j)=>c==null?'':cel(c[0],c[1],r,j)).join('')}</row>`).join('')}</sheetData></worksheet>`;
+ const fs=[];const res=[[[sp.titulo,'tit']],[[[CFG().empresa,sp.sub,'emitido em '+dBR(hoje())].filter(Boolean).join(' · '),'txt']],[]];(sp.kpis||[]).forEach(k=>res.push([[k[0],'txt'],[typeof k[1]==='number'?k[1]:String(k[1]),k[2]||'txt']]));
+ if((sp.kpis||[]).length)fs.push({nome:'Resumo',xml:folha(res,[34,18])});
+ for(const t of sp.tabelas){const linhas=[t.cols.map(c=>[c[0],'head']),...t.rows.map(r=>r.map((v,j)=>[t.cols[j][1]==='txt'?String(v??''):(+v||0),t.cols[j][1]]))];
+  const larg=t.cols.map((c,j)=>Math.min(60,Math.max(c[0].length+2,...t.rows.slice(0,200).map(r=>t.cols[j][1]==='txt'?String(r[j]??'').length+1:14),8)));fs.push({nome:t.nome.replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,31),xml:folha(linhas,larg)})}
+ const arq={'[Content_Types].xml':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${fs.map((f,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`,
+  '_rels/.rels':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
+  'xl/workbook.xml':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${fs.map((f,i)=>`<sheet name="${X(f.nome).replace(/"/g,'&quot;')}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')}</sheets></workbook>`,
+  'xl/_rels/workbook.xml.rels':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${fs.map((f,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')}<Relationship Id="rId${fs.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
+  'xl/styles.xml':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="3"><numFmt numFmtId="164" formatCode="&quot;R$&quot;\ #,##0.00"/><numFmt numFmtId="165" formatCode="0.0%"/><numFmt numFmtId="166" formatCode="#,##0.##"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF4ECDD"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs></styleSheet>`};
+ fs.forEach((f,i)=>arq[`xl/worksheets/sheet${i+1}.xml`]=f.xml);
+ return zipStore(arq,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}
+function zipStore(arq,mime){const enc=new TextEncoder();const T=zipStore.t||(zipStore.t=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})());
+ const crc=b=>{let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=T[(c^b[i])&0xFF]^(c>>>8);return(c^0xFFFFFFFF)>>>0};
+ const partes=[],central=[];let off=0;const u16=n=>[n&255,(n>>>8)&255],u32=n=>[n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255];
+ for(const[nome,txt]of Object.entries(arq)){const nb=enc.encode(nome),db=enc.encode(txt),c=crc(db);
+  const lh=new Uint8Array([0x50,0x4B,3,4,...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(c),...u32(db.length),...u32(db.length),...u16(nb.length),...u16(0)]);
+  partes.push(lh,nb,db);central.push(new Uint8Array([0x50,0x4B,1,2,...u16(20),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(c),...u32(db.length),...u32(db.length),...u16(nb.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]),nb);off+=lh.length+nb.length+db.length}
+ const cs=central.reduce((s,b)=>s+b.length,0);const n=Object.keys(arq).length;
+ return new Blob([...partes,...central,new Uint8Array([0x50,0x4B,5,6,...u16(0),...u16(0),...u16(n),...u16(n),...u32(cs),...u32(off),...u16(0)])],{type:mime})}
+
 /* ============ PDF ============ */
 const PC={gold:[148,115,58],ink:[42,34,41],muted:[118,108,119],line:[226,221,231],goldSoft:[246,239,226],lilacSoft:[240,238,248],white:[255,255,255]};
 const semAcento=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'');
@@ -2038,15 +2127,15 @@ function gerarPDF(kind,id){
  salvarArquivo(fn,doc.output('blob'));
 }
 async function salvarArquivo(fn,blob){
- const img=/\.png$/i.test(fn),N=img?'Imagem':'PDF',ok=img?'Imagem salva. Agora é só postar no Instagram.':'PDF salvo. Agora é só anexar no WhatsApp da cliente.';
+ const img=/\.png$/i.test(fn),xl=/\.xlsx$/i.test(fn),N=img?'Imagem':'PDF',ok=xl?'Planilha salva.':img?'Imagem salva. Agora é só postar no Instagram.':'PDF salvo.';
  if(window.claude&&typeof window.claude.use==='function'){
-  toast(img?'Preparando a imagem...':'Preparando o PDF...');
+  toast(xl?'Preparando a planilha...':img?'Preparando a imagem...':'Preparando o PDF...');
   let dl=null;try{dl=await window.claude.use('downloads')}catch(e){}
   if(!dl)return toast('Esta visualização não permite salvar arquivos. Abra o sistema pelo link no navegador ou no app do Claude.','bad');
   try{const r=await dl.save({filename:fn,data:blob});if(r&&r.status==='saved')toast(ok)}
   catch(e){if(e&&e.code==='declined')return;if(e&&e.code==='rate_limited')return toast('Já existe um arquivo aguardando confirmação.','bad');toast('Não foi possível salvar o arquivo aqui.','bad')}
   return}
- try{const f=new File([blob],fn,{type:img?'image/png':'application/pdf'});if(matchMedia('(pointer:coarse)').matches&&navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:fn});return}}catch(e){if(e&&e.name==='AbortError')return}
+ try{const f=new File([blob],fn,{type:xl?blob.type:img?'image/png':'application/pdf'});if(matchMedia('(pointer:coarse)').matches&&navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:fn});return}}catch(e){if(e&&e.name==='AbortError')return}
  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast(ok.replace('salv','baixad'));
 }
 /* ===== Cardápio do carrinho em imagem (Instagram) ===== */
