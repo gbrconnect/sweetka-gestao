@@ -2,6 +2,7 @@
 
 Sistema de gestão da Sweet Ka Confeitaria.
 
-- `index.html`: site publicado em https://sweetka-gestao.netlify.app
+- Sistema: https://sweetkaconfeitaria.github.io
+- Página de pedidos: https://sweetkaconfeitaria.github.io/pedir
 - Dados e login: Supabase (projeto `sweetka`)
-- Publicação: o Netlify publica automaticamente o que estiver na branch `main`
+- Publicação: o GitHub Pages publica automaticamente o que estiver na branch `main`
