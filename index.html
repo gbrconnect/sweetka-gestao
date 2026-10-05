@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#94733A">
-<link rel="icon" href="/favicon.png">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="Sweet Ka">
 <style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>Sweet Ka Gestão</title>
@@ -821,7 +821,7 @@ function siteCard(x){const d=x.dados||{};const est=d.tipo==='estacao';const its=
  ${d.obs?`<div class="small" style="background:var(--surface-2);padding:10px 12px;border-radius:8px;margin-top:8px"><b>Observações:</b> ${esc(d.obs)}</div>`:''}
  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px"><span>${est?'Valor dos pacotes':'Total dos produtos'} <b class="num">${brl(tot)}</b>${!est&&d.modo==='entrega'?' <span class="small muted">+ taxa do Uber</span>':''}</span>
  ${x.status==='novo'?`<span class="actions"><button class="btn ghost danger" onclick="recusarSite('${x.id}')">Recusar</button><button class="btn pri" onclick="aceitarSite('${x.id}')">${est?'Aceitar e montar orçamento':'Aceitar encomenda'}</button></span>`:`<span class="actions">${botaoWa(x)}</span>`}</div></div>`}
-R.online=()=>{const novos=siteNovos(),resp=SITE.filter(x=>x.status!=='novo').slice(0,12);const link=location.origin+'/pedir';
+R.online=()=>{const novos=siteNovos(),resp=SITE.filter(x=>x.status!=='novo').slice(0,12);const link=new URL('pedir/',location.href.split('#')[0]).href;
  return head('Pedidos online','Pedidos feitos pelas clientes na página pública. Ao aceitar, a encomenda entra na agenda; o pedido de Estação vira orçamento para você ajustar e enviar.',`<button class="btn" onclick="copiarTexto('${link}')">${ico('copy')}Copiar link da página</button><a class="btn" href="${link}" target="_blank" rel="noopener">Abrir página</a>`)
  +`<div class="card" style="margin-bottom:16px"><span class="small muted">Link para colocar na bio do Instagram ou enviar às clientes:</span><br><b style="word-break:break-all">${esc(link)}</b><div class="small muted" style="margin-top:6px">A página abre com as categorias dos produtos marcados como "Aparece no catálogo", e a cliente escolhe a que procura. Para mudar o que aparece em cada uma, ajuste a categoria no cadastro do produto. Pacotes marcados só como Estação Gourmet ficam em uma categoria própria, como pedido de orçamento.</div></div>
  <div class="grp">Novos <span>${novos.length}</span></div>${novos.length?novos.map(siteCard).join(''):'<div class="empty">Nenhum pedido novo no momento.</div>'}
