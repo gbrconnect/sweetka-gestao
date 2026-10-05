@@ -1892,8 +1892,10 @@ function fechamentoPDF(k){
 }
 
 /* ============ RELATÓRIOS ============ */
+function relPeriodos(){const T=hoje(),k=T.slice(0,7);let a=UI.relDe||k+'-01',b=UI.relAte||T;if(a>b)[a,b]=[b,a];const f=d=>d.slice(8)+'/'+d.slice(5,7)+'/'+d.slice(0,4);
+ return{mes:['Este mês',k+'-01',T],tri:['Últimos 3 meses',addMes(k,-2)+'-01',T],ano:['Últimos 12 meses',addMes(k,-11)+'-01',T],datas:[UI.relPer==='datas'?(a===b?f(a):f(a)+' a '+f(b)):'Escolher datas',a,b]}}
 R.relatorios=()=>{
- const T=hoje(),k=T.slice(0,7);const per={mes:['Este mês',k+'-01',T],tri:['Últimos 3 meses',addMes(k,-2)+'-01',T],ano:['Últimos 12 meses',addMes(k,-11)+'-01',T]};
+ const T=hoje(),k=T.slice(0,7);const per=relPeriodos();
  const[lbl,de,ate]=per[UI.relPer];const fr=UI.relFr||'tudo';const ps=S.pedidos.filter(p=>fr!=='carrinho'&&(fr==='tudo'||frenteDe(p)===fr)&&p.status==='entregue'&&p.dataEntrega>=de&&p.dataEntrega<=ate);
  const agg={};let rec=0,luc=0;const cat={};
  for(const p of ps){const t=totaisDoc(p);rec+=t.rec;luc+=t.lucro;for(const x of p.itens){const pr=getProd(x.p);if(!pr||pr.repasse)continue;const c=custoProduto(pr);const a=agg[x.p]=agg[x.p]||{q:0,r:0,l:0};a.q+=x.q;a.r+=x.q*x.v;a.l+=x.q*x.v*(1-deducoes())-x.q*c.total;cat[pr.cat]=(cat[pr.cat]||0)+x.q*x.v}}
@@ -1902,7 +1904,7 @@ R.relatorios=()=>{
  rows.forEach(r=>{acc+=r.r;r.abc=acc/totR<=0.8?'A':acc/totR<=0.95?'B':'C'});
  const maxL=Math.max(...rows.map(r=>Math.abs(r.l)),1);
  return head('Relatórios','O que mais vende, o que mais deixa lucro e para onde vai o faturamento.')
- +`<div class="chips" style="margin-bottom:16px">${Object.entries(per).map(([key,v])=>`<button class="chip ${UI.relPer===key?'on':''}" onclick="UI.relPer='${key}';render()">${v[0]}</button>`).join('')}</div>`+chipsFrente('relFr')+`
+ +`<div class="chips" style="margin-bottom:16px">${Object.entries(per).map(([key,v])=>`<button class="chip ${UI.relPer===key?'on':''}" onclick="UI.relPer='${key}';render()">${key==='datas'?'Escolher datas':v[0]}</button>`).join('')}</div>`+(UI.relPer==='datas'?`<div class="frow" style="margin-bottom:16px;max-width:420px"><label class="f">De<input type="date" value="${de}" onchange="UI.relDe=this.value;render()"></label><label class="f">Até<input type="date" value="${ate}" onchange="UI.relAte=this.value;render()"></label></div>`:'')+chipsFrente('relFr')+`
  <div class="grid g4" style="margin-bottom:16px"><div class="card kpi"><div class="l">Faturamento</div><div class="v num">${brl(rec)}</div></div><div class="card kpi"><div class="l">Pedidos e carrinho</div><div class="v num" style="font-size:18px">${brl(rec-recCar)} · ${brl(recCar)}</div><div class="d">${ps.length} pedidos entregues</div></div><div class="card kpi"><div class="l">Ticket médio dos pedidos</div><div class="v num">${brl(ps.length?(rec-recCar)/ps.length:0)}</div></div><div class="card kpi"><div class="l">Lucro estimado</div><div class="v num">${brl(luc)}</div><div class="d">${pct(rec?luc/rec:0)} do faturamento</div></div></div>
  ${rows.length?`<div class="grid g21"><div class="card"><h3>Lucro por produto</h3>${rows.slice().sort((a,b)=>b.l-a.l).map(r=>`<div class="hbar"><span>${esc(r.p.nome)}</span><div class="track"><i style="width:${Math.max(0,r.l)/maxL*100}%"></i></div><b class="num">${brl(r.l)}</b></div>`).join('')}</div>
  <div class="card"><h3>Faturamento por categoria</h3>${Object.entries(cat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${esc(c)}</span><b class="num">${pct(v/totR)}</b></div><div class="bar"><i style="width:${v/totR*100}%"></i></div></div>`).join('')}</div></div>
@@ -2002,7 +2004,7 @@ EXP.financeiro=()=>{const k=UI.finMes||hoje().slice(0,7);const d=dreMes(k),rf=re
  return{titulo:'Financeiro',sub:mesLabel(k),kpis:[['Carrinho',rf.carrinho,'brl'],['Estação Gourmet',rf.estacao,'brl'],['Encomendas',rf.encomenda,'brl'],['Total vendido',rf.carrinho+rf.estacao+rf.encomenda,'brl'],['A receber',rec.reduce((s,p)=>s+totaisDoc(p).saldo,0),'brl'],['Repasse no mês',Object.values(rp).reduce((s,x)=>s+x.vend,0),'brl']],tabelas:T}};
 EXP.painelFin=()=>{const k=hoje().slice(0,7);const ms=[];for(let i=11;i>=0;i--){const mk=addMes(k,-i);const rf=recFrente(mk),d=dreMes(mk);ms.push([mesLabel(mk),rf.carrinho,rf.estacao,rf.encomenda,d.rec,d.mc,d.dsp+d.pl,d.final])}const d=dreMes(k);
  return{titulo:'Painel financeiro',sub:mesLabel(k),kpis:[['Faturamento do mês',d.rec,'brl'],['Margem de contribuição',d.mcp,'pct'],['Resultado do mês',d.final,'brl'],['Ponto de equilíbrio',d.pe||0,'brl']],tabelas:[{nome:'Últimos 12 meses',cols:[['Mês','txt'],['Carrinho','brl'],['Estação','brl'],['Encomendas','brl'],['Faturamento','brl'],['Margem de contribuição','brl'],['Despesas e pró-labore','brl'],['Resultado','brl']],rows:ms}]}};
-EXP.relatorios=()=>{const T=hoje(),k=T.slice(0,7);const per={mes:['Este mês',k+'-01',T],tri:['Últimos 3 meses',addMes(k,-2)+'-01',T],ano:['Últimos 12 meses',addMes(k,-11)+'-01',T]};const[lbl,de,ate]=per[UI.relPer]||per.mes;const fr=UI.relFr||'tudo';const agg={};
+EXP.relatorios=()=>{const T=hoje(),k=T.slice(0,7);const per=relPeriodos();const[lbl,de,ate]=per[UI.relPer]||per.mes;const fr=UI.relFr||'tudo';const agg={};
  const add=(pid,q,v,tx)=>{const pr=getProd(pid);if(!pr||pr.repasse)return;const a=agg[pid]=agg[pid]||{q:0,r:0,l:0};a.q+=q;a.r+=v;a.l+=v*(1-CFG().imposto/100-tx)-q*custoProduto(pr).total};
  if(fr!=='carrinho')for(const p of S.pedidos)if(p.status==='entregue'&&p.dataEntrega>=de&&p.dataEntrega<=ate&&(fr==='tudo'||frenteDe(p)===fr))for(const x of p.itens)add(x.p,x.q,x.q*x.v,txC()/100);
  if(fr==='tudo'||fr==='carrinho')for(const{v}of vendasCarrinhoPeriodo(de,ate))for(const x of v.itens)add(x.p,x.q,x.q*x.v,taxaForma(v.forma)/100);
