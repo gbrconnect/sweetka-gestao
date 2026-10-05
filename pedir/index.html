@@ -68,7 +68,9 @@ textarea{min-height:76px;resize:vertical}
 .catb .go{font-size:26px;color:var(--gold)}
 .catb .go.sm{font-size:13px;font-weight:700;color:var(--gold-d);white-space:nowrap}
 .tag{display:inline-block;margin-top:6px;background:var(--soft);color:var(--gold-d);font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px}
-.back{font:inherit;font-weight:700;color:var(--gold-d);background:none;border:0;padding:6px 0;margin-top:14px;cursor:pointer}
+.back{font:inherit;font-weight:700;font-size:15px;color:var(--gold-d);background:var(--card);border:1.5px solid var(--gold);border-radius:999px;padding:10px 18px;margin-top:14px;cursor:pointer;position:sticky;top:8px;z-index:5;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+.back2{display:block;width:100%;position:static;margin-top:18px;text-align:center;box-shadow:none}
+.crumb{font-size:13px;color:var(--muted,#766C77);margin-top:12px}
 .center{text-align:center;padding:60px 16px;color:var(--muted)}
 .ok{width:64px;height:64px;border-radius:50%;background:var(--gold);color:#fff;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 14px}
 footer{text-align:center;color:var(--muted);font-size:13px;margin-top:34px}
@@ -120,9 +122,9 @@ function lista(){const cs=cats();
  if(GRP!=null&&!gs.find(g=>g[0]===GRP))GRP=null;
  const sub=est?'Nossa estação vai até a sua festa e serve os convidados por algumas horas. Selecione o pacote para receber um orçamento.':'Informe a quantidade de cada produto.';
  if(GRP!=null){const gp=gs.find(g=>g[0]===GRP)[1];
-  $('#main').innerHTML=`<button class="back" id="volta">‹ ${esc(nomeCat(VIEW))}</button><h2>${esc(GRP)}</h2><p class="h2s">${gp.length} opções. ${sub}</p><div class="grid">${gp.map(card).join('')}</div>`;
-  $('#volta').onclick=()=>{GRP=null;lista();window.scrollTo(0,0)};barra();return}
- $('#main').innerHTML=(cs.length>1?`<button class="back" id="volta">‹ Todas as categorias</button>`:'')+`<h2>${esc(nomeCat(VIEW))}</h2><p class="h2s">${gs.length?'Toque em um grupo para ver todas as opções.':sub}</p>`
+  $('#main').innerHTML=`<button class="back" data-volta>‹ Voltar para ${esc(nomeCat(VIEW))}</button><div class="crumb">${esc(nomeCat(VIEW))} › ${esc(GRP)}</div><h2>${esc(GRP)}</h2><p class="h2s">${gp.length} opções. ${sub}</p><div class="grid">${gp.map(card).join('')}</div><button class="back back2" data-volta>‹ Ver outros produtos de ${esc(nomeCat(VIEW))}</button>`;
+  document.querySelectorAll('[data-volta]').forEach(b=>b.onclick=()=>{GRP=null;lista();window.scrollTo(0,0)});barra();return}
+ $('#main').innerHTML=(cs.length>1?`<button class="back" id="volta">‹ Voltar para todas as categorias</button>`:'')+`<h2>${esc(nomeCat(VIEW))}</h2><p class="h2s">${gs.length?'Toque em um grupo para ver todas as opções.':sub}</p>`
   +(gs.length?`<div class="cats">${gs.map(([g,a],i)=>{const f=a.find(x=>fotoOk(x.foto));const n=a.filter(x=>Q[x.id]>0).length;const pr=a.map(x=>x.preco).filter(v=>v>0);
    return`<button class="catb" data-grp="${i}"><span class="ft">${f?`<img src="${f.foto}" alt="">`:esc(g[0]||'?').toUpperCase()}</span><span class="ct"><b>${esc(g)}</b><span class="d">${a.length} opções${pr.length?' · a partir de '+brl(Math.min(...pr)):''}</span>${n?`<span class="tag">${n} no pedido</span>`:''}</span><span class="go sm">Ver opções ›</span></button>`}).join('')}</div>`:'')
   +(soltos.length?(gs.length?`<h2 style="margin-top:22px">Mais produtos</h2><p class="h2s">${sub}</p>`:'')+`<div class="grid">${soltos.map(card).join('')}</div>`:'');
