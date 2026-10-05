@@ -809,13 +809,15 @@ R.painel=()=>{
  </div>`;
 };
 /* ============ PEDIDOS ONLINE (página pública /pedir) ============ */
-let SITE=[],_vit='',SITE_OK=false;const SLUG_SITE='sweetka';
+let SITE=[],_vit='',SITE_OK=false;let SLUG_SITE='';
+const slugify=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);
+async function carregarSlug(){SLUG_SITE='';if(!NUVEM||!LOJA)return;try{const r=await sb.from('vitrine').select('slug').eq('loja_id',LOJA).limit(1);if(r.error)return;if(r.data&&r.data[0]&&r.data[0].slug){SLUG_SITE=r.data[0].slug;return}let sl=slugify(LOJA_NOME)||'loja';const c=await sb.from('vitrine').select('loja_id').eq('slug',sl).limit(1);if(c.data&&c.data[0])sl=sl+'-'+String(LOJA).slice(0,4);SLUG_SITE=sl}catch(e){}}
 const siteNovos=()=>SITE.filter(x=>x.status==='novo');
 function siteBanner(){const n=siteNovos().length;return n?`<div class="car-banner" style="margin-bottom:12px"><div><div class="t">${n} pedido${n>1?'s':''} novo${n>1?'s':''} pelo site</div><div class="s">Abra para aceitar ou recusar. Ao aceitar, ele entra na agenda.</div></div><button class="btn" onclick="go('online')">${ico('online')}Ver pedidos</button></div>`:''}
 function vitrineDados(){const c=CFG();
  const ps=S.produtos.filter(p=>p.ativo!==false).map(p=>{const fs=frentesDe(p);if(fs.length&&!fs.includes('encomenda')&&!fs.includes('estacao'))return null;const tipo=fs.includes('estacao')&&!fs.includes('encomenda')?'estacao':'encomenda';if(tipo==='estacao'?p.catalogo===false:!noCatalogo(p))return null;return{id:p.id,nome:p.nome,desc:p.desc||'',preco:+p.preco||0,foto:p.foto||'',cat:p.cat||'',grupo:p.grupo||'',tipo,min:Math.max(0,Math.round(+p.minimo||0))}}).filter(Boolean);
  return{marca:c.marca||c.empresa||'',sub:c.marcaSub??'CONFEITARIA',logo:c.logo||'',whatsapp:c.whatsapp||'',instagram:c.instagram||'',aviso:c.avisoSite??AVISO_SITE,produtos:ps}}
-async function publicarVitrine(){if(!NUVEM||!LOJA||!SITE_OK)return;const d=vitrineDados(),t=canon(d);if(t===_vit)return;try{const r=await sb.from('vitrine').upsert([{loja_id:LOJA,slug:SLUG_SITE,dados:d,atualizado_em:new Date().toISOString()}]);if(!r.error)_vit=t}catch(e){}}
+async function publicarVitrine(){if(!NUVEM||!LOJA||!SITE_OK||!SLUG_SITE)return;const d=vitrineDados(),t=canon(d);if(t===_vit)return;try{const r=await sb.from('vitrine').upsert([{loja_id:LOJA,slug:SLUG_SITE,dados:d,atualizado_em:new Date().toISOString()}]);if(!r.error)_vit=t}catch(e){}}
 async function carregarSite(){if(!NUVEM||!LOJA)return;try{const r=await sb.from('pedidos_site').select('id,criado_em,status,dados').eq('loja_id',LOJA).order('criado_em',{ascending:false}).limit(60);if(r.error)return;const era=SITE_OK;SITE_OK=true;const a=canon(SITE.map(x=>[x.id,x.status]));SITE=r.data||[];if(!era||canon(SITE.map(x=>[x.id,x.status]))!==a){if($('#modal-root').innerHTML)_remoto=true;else render()}}catch(e){}}
 function siteCard(x){const d=x.dados||{};const est=d.tipo==='estacao';const its=Array.isArray(d.itens)?d.itens:[];const tot=its.reduce((s,i)=>s+(+i.q||0)*((getProd(i.p)||{}).preco||0),0);const quando=String(x.criado_em||'').slice(0,10);
  return`<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start"><div style="min-width:0"><b>${esc(d.nome||'Sem nome')}</b> <span class="small muted">${esc(d.fone||'')}</span><br><span class="small muted">${est?'Estação Gourmet (pedido de orçamento)':'Encomenda'} · recebido em ${quando?dBR(quando):''}</span></div>
@@ -826,7 +828,7 @@ function siteCard(x){const d=x.dados||{};const est=d.tipo==='estacao';const its=
  ${d.obs?`<div class="small" style="background:var(--surface-2);padding:10px 12px;border-radius:8px;margin-top:8px"><b>Observações:</b> ${esc(d.obs)}</div>`:''}
  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px"><span>${est?'Valor dos pacotes':'Total dos produtos'} <b class="num">${brl(tot)}</b>${!est&&d.modo==='entrega'?' <span class="small muted">+ taxa do Uber</span>':''}</span>
  ${x.status==='novo'?`<span class="actions"><button class="btn ghost danger" onclick="recusarSite('${x.id}')">Recusar</button><button class="btn pri" onclick="aceitarSite('${x.id}')">${est?'Aceitar e montar orçamento':'Aceitar encomenda'}</button></span>`:`<span class="actions">${botaoWa(x)}</span>`}</div></div>`}
-R.online=()=>{const sb_=UI.siteBusca.trim().toLowerCase();const bate=x=>!sb_||JSON.stringify(x.dados||{}).toLowerCase().includes(sb_);const novos=siteNovos().filter(bate),resp=SITE.filter(x=>x.status!=='novo'&&bate(x)).slice(0,sb_?50:12);const link=new URL('pedir/',location.href.split('#')[0]).href;
+R.online=()=>{const sb_=UI.siteBusca.trim().toLowerCase();const bate=x=>!sb_||JSON.stringify(x.dados||{}).toLowerCase().includes(sb_);const novos=siteNovos().filter(bate),resp=SITE.filter(x=>x.status!=='novo'&&bate(x)).slice(0,sb_?50:12);const link=new URL('pedir/'+(SLUG_SITE?'?loja='+SLUG_SITE:''),location.href.split('#')[0]).href;
  return head('Pedidos online','Pedidos feitos pelas clientes na página pública. Ao aceitar, a encomenda entra na agenda; o pedido de Estação vira orçamento para você ajustar e enviar.',`<button class="btn" onclick="copiarTexto('${link}')">${ico('copy')}Copiar link da página</button><a class="btn" href="${link}" target="_blank" rel="noopener">Abrir página</a>`)
  +`<div class="toolbar"><input type="search" class="search" id="site-busca" placeholder="Buscar por cliente, telefone ou produto" value="${esc(UI.siteBusca)}" oninput="UI.siteBusca=this.value;rerenderKeep('site-busca')"></div><div class="grp">Novos <span>${novos.length}</span></div>${novos.length?novos.map(siteCard).join(''):`<div class="empty">${sb_?'Nenhum pedido novo encontrado na busca.':'Nenhum pedido novo no momento.'}</div>`}
  ${resp.length?`<div class="grp" style="margin-top:18px">Já respondidos</div>${resp.map(siteCard).join('')}`:''}
@@ -2296,10 +2298,10 @@ async function abrirLoja(id){
  _sync={};
  if(rows.length){const base=seed();S={versao:1,seq:2000,exemplo:false,config:{...base.config,logo:''},insumos:[],receitas:[],produtos:[],clientes:[],pedidos:[],orcamentos:[],lancamentos:[],compras:[],carrinhos:[],estoqueProntos:{},producoes:[]};
   for(const r of rows){aplicarChave(r.chave,r.valor);_sync[r.chave]=canon(r.valor)}cacheLocal()}
- else{S=vazio();cacheLocal();await enviar()}
+ else{S=vazio();Object.assign(S.config,{empresa:LOJA_NOME||'Minha confeitaria',marca:LOJA_NOME||'Minha confeitaria',marcaSub:'',instagram:'',pix:'',agradecimento:'Obrigada pela preferência!',avisoSite:'Faça seu pedido com antecedência. A data é confirmada pelo WhatsApp.'});cacheLocal();await enviar()}
  if(_canal){try{sb.removeChannel(_canal)}catch(e){}}
  _canal=sb.channel('dados-'+LOJA).on('postgres_changes',{event:'*',schema:'public',table:'dados',filter:'loja_id=eq.'+LOJA},p=>{if(chegouRemoto(p.new))aposRemoto()}).on('postgres_changes',{event:'*',schema:'public',table:'pedidos_site',filter:'loja_id=eq.'+LOJA},()=>carregarSite()).subscribe();
- SITE=[];_vit='';await carregarSite();publicarVitrine();
+ SITE=[];_vit='';await carregarSlug();await carregarSite();publicarVitrine();
  if(lancarRecorrentes())save();
  mostrarApp(true);go(location.hash.slice(1)||'painel');backupDiario();
 }

@@ -113,7 +113,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;margin-top:34px}
 <div id="ov"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const SB_URL='https://shurvutfxgynqmgmkbgv.supabase.co',SB_KEY='sb_publishable_2IFmJsTg7HcQtnQDLLLG-A_bksQpi30',SLUG='sweetka';
+const SB_URL='https://shurvutfxgynqmgmkbgv.supabase.co',SB_KEY='sb_publishable_2IFmJsTg7HcQtnQDLLLG-A_bksQpi30',SLUG=(()=>{const q=(new URLSearchParams(location.search).get('loja')||'').toLowerCase();return /^[a-z0-9-]{1,60}$/.test(q)?q:'sweetka'})();
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const brl=v=>(+v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -139,9 +139,9 @@ function lista(){const cs=cats();
  if(!cs.length){$('#main').innerHTML='<div class="center">O catálogo está sendo atualizado. Volte em breve.</div>';return}
  if(cs.length===1)VIEW=cs[0][0];
  if(VIEW==null||!cs.find(c=>c[0]===VIEW)){VIEW=null;
-  $('#main').innerHTML=`<button class="sobre-b" id="sobre-b"><span class="pl"><img src="${FT}kath.jpg" alt=""></span><span><b>Conheça a Sweet Ka</b><span class="d">A história por trás de cada docinho</span></span><span class="go" style="font-size:26px;color:var(--gold)">›</span></button><h2>O que você procura?</h2><p class="h2s">Escolha uma categoria para ver os produtos.</p><div class="cats">${cs.map(([k,ps],i)=>{const f=ps.find(x=>fotoOk(x.foto));const n=ps.filter(x=>Q[x.id]>0).length;
+  $('#main').innerHTML=`${SLUG==='sweetka'?`<button class="sobre-b" id="sobre-b"><span class="pl"><img src="${FT}kath.jpg" alt=""></span><span><b>Conheça a Sweet Ka</b><span class="d">A história por trás de cada docinho</span></span><span class="go" style="font-size:26px;color:var(--gold)">›</span></button>`:''}<h2>O que você procura?</h2><p class="h2s">Escolha uma categoria para ver os produtos.</p><div class="cats">${cs.map(([k,ps],i)=>{const f=ps.find(x=>fotoOk(x.foto));const n=ps.filter(x=>Q[x.id]>0).length;
    return`<button class="catb" data-cat="${i}"><span class="ft">${f?`<img src="${f.foto}" alt="">`:esc(nomeCat(k).trim()[0]||'?').toUpperCase()}</span><span class="ct"><b>${esc(nomeCat(k))}</b><span class="d">${k===EST?'A estação vai até a sua festa. Peça um orçamento.':ps.length+(ps.length===1?' produto':' produtos')}</span>${n?`<span class="tag">${n} no pedido</span>`:''}</span><span class="go">›</span></button>`}).join('')}</div>`;
-  $('#sobre-b').onclick=sobre;barra();return}
+  if($('#sobre-b'))$('#sobre-b').onclick=sobre;barra();return}
  const ps=cs.find(c=>c[0]===VIEW)[1];const est=VIEW===EST;
  const gm=new Map();for(const p of ps){const g=(p.grupo||'').trim();if(g){if(!gm.has(g))gm.set(g,[]);gm.get(g).push(p)}}
  const gs=[...gm.entries()].filter(([,a])=>a.length>1);const emG=new Set(gs.flatMap(([,a])=>a.map(p=>p.id)));const soltos=ps.filter(p=>!emG.has(p.id));
