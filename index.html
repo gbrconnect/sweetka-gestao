@@ -814,7 +814,7 @@ const siteNovos=()=>SITE.filter(x=>x.status==='novo');
 function siteBanner(){const n=siteNovos().length;return n?`<div class="car-banner" style="margin-bottom:12px"><div><div class="t">${n} pedido${n>1?'s':''} novo${n>1?'s':''} pelo site</div><div class="s">Abra para aceitar ou recusar. Ao aceitar, ele entra na agenda.</div></div><button class="btn" onclick="go('online')">${ico('online')}Ver pedidos</button></div>`:''}
 function vitrineDados(){const c=CFG();
  const ps=S.produtos.filter(p=>p.ativo!==false).map(p=>{const fs=frentesDe(p);if(fs.length&&!fs.includes('encomenda')&&!fs.includes('estacao'))return null;const tipo=fs.includes('estacao')&&!fs.includes('encomenda')?'estacao':'encomenda';if(tipo==='estacao'?p.catalogo===false:!noCatalogo(p))return null;return{id:p.id,nome:p.nome,desc:p.desc||'',preco:+p.preco||0,foto:p.foto||'',cat:p.cat||'',grupo:p.grupo||'',tipo,min:Math.max(0,Math.round(+p.minimo||0))}}).filter(Boolean);
- return{marca:c.marca||c.empresa||'',sub:c.marcaSub??'CONFEITARIA',logo:c.logo||'',whatsapp:c.whatsapp||'',instagram:c.instagram||'',produtos:ps}}
+ return{marca:c.marca||c.empresa||'',sub:c.marcaSub??'CONFEITARIA',logo:c.logo||'',whatsapp:c.whatsapp||'',instagram:c.instagram||'',aviso:c.avisoSite??AVISO_SITE,produtos:ps}}
 async function publicarVitrine(){if(!NUVEM||!LOJA||!SITE_OK)return;const d=vitrineDados(),t=canon(d);if(t===_vit)return;try{const r=await sb.from('vitrine').upsert([{loja_id:LOJA,slug:SLUG_SITE,dados:d,atualizado_em:new Date().toISOString()}]);if(!r.error)_vit=t}catch(e){}}
 async function carregarSite(){if(!NUVEM||!LOJA)return;try{const r=await sb.from('pedidos_site').select('id,criado_em,status,dados').eq('loja_id',LOJA).order('criado_em',{ascending:false}).limit(60);if(r.error)return;const era=SITE_OK;SITE_OK=true;const a=canon(SITE.map(x=>[x.id,x.status]));SITE=r.data||[];if(!era||canon(SITE.map(x=>[x.id,x.status]))!==a){if($('#modal-root').innerHTML)_remoto=true;else render()}}catch(e){}}
 function siteCard(x){const d=x.dados||{};const est=d.tipo==='estacao';const its=Array.isArray(d.itens)?d.itens:[];const tot=its.reduce((s,i)=>s+(+i.q||0)*((getProd(i.p)||{}).preco||0),0);const quando=String(x.criado_em||'').slice(0,10);
@@ -1893,6 +1893,7 @@ function fechamentoPDF(k){
 }
 
 /* ============ RELATÓRIOS ============ */
+const AVISO_SITE='Faça seu pedido com antecedência. Doces personalizados e em pasta americana precisam de no mínimo 2 semanas. A data é confirmada pelo WhatsApp.';
 function relPeriodos(){const T=hoje(),k=T.slice(0,7);let a=UI.relDe||k+'-01',b=UI.relAte||T;if(a>b)[a,b]=[b,a];const f=d=>d.slice(8)+'/'+d.slice(5,7)+'/'+d.slice(0,4);
  return{mes:['Este mês',k+'-01',T],tri:['Últimos 3 meses',addMes(k,-2)+'-01',T],ano:['Últimos 12 meses',addMes(k,-11)+'-01',T],datas:[UI.relPer==='datas'?(a===b?f(a):f(a)+' a '+f(b)):'Escolher datas',a,b]}}
 R.relatorios=()=>{
@@ -1929,6 +1930,7 @@ R.config=()=>{const c=CFG();const f=(id,l,v,h='',hide)=>`<label class="f" ${hide
   <div class="grid g2"><div class="frow">
    <label class="f">Nome da marca no PDF<input type="text" id="cf-marca" value="${esc(c.marca||'Sweet Ka')}"></label>
    <label class="f">Linha abaixo da marca<input type="text" id="cf-marcaSub" value="${esc(c.marcaSub??'CONFEITARIA')}"></label>
+   <label class="f" style="grid-column:1/-1">Aviso de antecedência na página de pedidos<input type="text" id="cf-avisoSite" maxlength="240" value="${esc(c.avisoSite??AVISO_SITE)}"><span class="small muted">Aparece para a cliente ao escolher a data. Deixe em branco para não mostrar.</span></label>
    <label class="f">Chave Pix <small>(aparece nas condições)</small><input type="text" id="cf-pix" value="${esc(c.pix&&c.pix!=='chave Pix da Sweet Ka'?c.pix:'')}" placeholder="CNPJ, e-mail ou telefone"></label>
    <label class="f">Mensagem de agradecimento<input type="text" id="cf-agradecimento" value="${esc(c.agradecimento??'Obrigada por escolher a Sweet Ka!')}"></label></div>
   <div><div class="sec" style="margin-bottom:8px">Logo</div>
@@ -1970,7 +1972,7 @@ function zerar(tudo){
 }
 function salvarCfg(){const c=CFG();c.custoMetodo=$('#cf-custoMetodo').value;for(const k of['margemAlvo','margemMin','imposto','taxaDebito','taxaCredito','custoHora','indireto','capacidade','sinalPct','validade'])c[k]=num($('#cf-'+k).value);
  c.taxa=c.taxaCredito;if(c.margemAlvo+c.imposto+c.taxaCredito>=100)return toast('Margem, impostos e taxas somados precisam ficar abaixo de 100%.','bad');
- for(const k of['empresa','instagram','whatsapp','marca','marcaSub','pix','agradecimento'])c[k]=$('#cf-'+k).value.trim();save();render();toast('Configurações salvas')}
+ for(const k of['empresa','instagram','whatsapp','marca','marcaSub','pix','agradecimento','avisoSite'])c[k]=$('#cf-'+k).value.trim();save();render();toast('Configurações salvas')}
 
 /* ============ EXPORTAR PÁGINA (Excel e PDF) ============ */
 const EXP={};
