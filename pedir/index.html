@@ -68,7 +68,7 @@ textarea{min-height:76px;resize:vertical}
 .catb .go{font-size:26px;color:var(--gold)}
 .rm{font:inherit;border:0;background:var(--soft);color:var(--gold-d);width:24px;height:24px;border-radius:50%;margin-left:6px;cursor:pointer;font-weight:700;line-height:1}
 .ok.wait{background:var(--soft);color:var(--gold-d)}
-.sobre-b{font:inherit;width:100%;margin-top:22px;text-align:left;background:linear-gradient(135deg,#FBEFEF,#F4ECDD);border:1.5px dashed #E3B9B9;border-radius:20px;padding:14px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;cursor:pointer;color:var(--ink)}
+.sobre-b{font:inherit;width:100%;margin-top:6px;text-align:left;background:linear-gradient(135deg,#FBEFEF,#F4ECDD);border:1.5px dashed #E3B9B9;border-radius:20px;padding:14px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;cursor:pointer;color:var(--ink)}
 .sobre-b .pl{width:70px;padding:4px 4px 12px;margin:0;transform:rotate(-5deg)}
 .sobre-b b{font-family:Caveat,cursive;font-size:27px;line-height:1;color:var(--gold-d);display:block}
 .sobre-b .d{color:var(--muted);font-size:13px}
@@ -139,8 +139,8 @@ function lista(){const cs=cats();
  if(!cs.length){$('#main').innerHTML='<div class="center">O catálogo está sendo atualizado. Volte em breve.</div>';return}
  if(cs.length===1)VIEW=cs[0][0];
  if(VIEW==null||!cs.find(c=>c[0]===VIEW)){VIEW=null;
-  $('#main').innerHTML=`<h2>O que você procura?</h2><p class="h2s">Escolha uma categoria para ver os produtos.</p><div class="cats">${cs.map(([k,ps],i)=>{const f=ps.find(x=>fotoOk(x.foto));const n=ps.filter(x=>Q[x.id]>0).length;
-   return`<button class="catb" data-cat="${i}"><span class="ft">${f?`<img src="${f.foto}" alt="">`:esc(nomeCat(k).trim()[0]||'?').toUpperCase()}</span><span class="ct"><b>${esc(nomeCat(k))}</b><span class="d">${k===EST?'A estação vai até a sua festa. Peça um orçamento.':ps.length+(ps.length===1?' produto':' produtos')}</span>${n?`<span class="tag">${n} no pedido</span>`:''}</span><span class="go">›</span></button>`}).join('')}</div><button class="sobre-b" id="sobre-b"><span class="pl"><img src="${FT}kath.jpg" alt=""></span><span><b>Conheça a Sweet Ka</b><span class="d">A história por trás de cada docinho</span></span><span class="go" style="font-size:26px;color:var(--gold)">›</span></button>`;
+  $('#main').innerHTML=`<button class="sobre-b" id="sobre-b"><span class="pl"><img src="${FT}kath.jpg" alt=""></span><span><b>Conheça a Sweet Ka</b><span class="d">A história por trás de cada docinho</span></span><span class="go" style="font-size:26px;color:var(--gold)">›</span></button><h2>O que você procura?</h2><p class="h2s">Escolha uma categoria para ver os produtos.</p><div class="cats">${cs.map(([k,ps],i)=>{const f=ps.find(x=>fotoOk(x.foto));const n=ps.filter(x=>Q[x.id]>0).length;
+   return`<button class="catb" data-cat="${i}"><span class="ft">${f?`<img src="${f.foto}" alt="">`:esc(nomeCat(k).trim()[0]||'?').toUpperCase()}</span><span class="ct"><b>${esc(nomeCat(k))}</b><span class="d">${k===EST?'A estação vai até a sua festa. Peça um orçamento.':ps.length+(ps.length===1?' produto':' produtos')}</span>${n?`<span class="tag">${n} no pedido</span>`:''}</span><span class="go">›</span></button>`}).join('')}</div>`;
   $('#sobre-b').onclick=sobre;barra();return}
  const ps=cs.find(c=>c[0]===VIEW)[1];const est=VIEW===EST;
  const gm=new Map();for(const p of ps){const g=(p.grupo||'').trim();if(g){if(!gm.has(g))gm.set(g,[]);gm.get(g).push(p)}}
