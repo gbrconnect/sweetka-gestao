@@ -719,7 +719,7 @@ const PAGES=[
  {id:'config',label:'Configurações',g:'Gestão'},
 ];
 let PAGE='painel';
-const UI={pedFiltro:'ativos',pedBusca:'',orcFiltro:'ativos',orcBusca:'',agDias:14,compDias:7,compInclAg:true,prodCat:'Todos',prodBusca:'',insBusca:'',insCat:'Todos',cliBusca:'',finMes:null,finTab:'resumo',relPer:'mes',simIns:'i4',simPct:15};
+const UI={pedFiltro:'ativos',pedBusca:'',orcFiltro:'ativos',orcBusca:'',siteBusca:'',agDias:14,compDias:7,compInclAg:true,prodCat:'Todos',prodBusca:'',insBusca:'',insCat:'Todos',cliBusca:'',finMes:null,finTab:'resumo',relPer:'mes',simIns:'i4',simPct:15};
 
 function badges(){
  const al=alertas();
@@ -826,9 +826,9 @@ function siteCard(x){const d=x.dados||{};const est=d.tipo==='estacao';const its=
  ${d.obs?`<div class="small" style="background:var(--surface-2);padding:10px 12px;border-radius:8px;margin-top:8px"><b>Observações:</b> ${esc(d.obs)}</div>`:''}
  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px"><span>${est?'Valor dos pacotes':'Total dos produtos'} <b class="num">${brl(tot)}</b>${!est&&d.modo==='entrega'?' <span class="small muted">+ taxa do Uber</span>':''}</span>
  ${x.status==='novo'?`<span class="actions"><button class="btn ghost danger" onclick="recusarSite('${x.id}')">Recusar</button><button class="btn pri" onclick="aceitarSite('${x.id}')">${est?'Aceitar e montar orçamento':'Aceitar encomenda'}</button></span>`:`<span class="actions">${botaoWa(x)}</span>`}</div></div>`}
-R.online=()=>{const novos=siteNovos(),resp=SITE.filter(x=>x.status!=='novo').slice(0,12);const link=new URL('pedir/',location.href.split('#')[0]).href;
+R.online=()=>{const sb_=UI.siteBusca.trim().toLowerCase();const bate=x=>!sb_||JSON.stringify(x.dados||{}).toLowerCase().includes(sb_);const novos=siteNovos().filter(bate),resp=SITE.filter(x=>x.status!=='novo'&&bate(x)).slice(0,sb_?50:12);const link=new URL('pedir/',location.href.split('#')[0]).href;
  return head('Pedidos online','Pedidos feitos pelas clientes na página pública. Ao aceitar, a encomenda entra na agenda; o pedido de Estação vira orçamento para você ajustar e enviar.',`<button class="btn" onclick="copiarTexto('${link}')">${ico('copy')}Copiar link da página</button><a class="btn" href="${link}" target="_blank" rel="noopener">Abrir página</a>`)
- +`<div class="grp">Novos <span>${novos.length}</span></div>${novos.length?novos.map(siteCard).join(''):'<div class="empty">Nenhum pedido novo no momento.</div>'}
+ +`<div class="toolbar"><input type="search" class="search" id="site-busca" placeholder="Buscar por cliente, telefone ou produto" value="${esc(UI.siteBusca)}" oninput="UI.siteBusca=this.value;rerenderKeep('site-busca')"></div><div class="grp">Novos <span>${novos.length}</span></div>${novos.length?novos.map(siteCard).join(''):`<div class="empty">${sb_?'Nenhum pedido novo encontrado na busca.':'Nenhum pedido novo no momento.'}</div>`}
  ${resp.length?`<div class="grp" style="margin-top:18px">Já respondidos</div>${resp.map(siteCard).join('')}`:''}
  <p class="small muted" style="margin:26px 0 0;font-size:11.5px;line-height:1.5">Link da página: ${esc(link)}<br>Ela mostra os produtos marcados como "Aparece no catálogo", separados pela categoria do cadastro. Pacotes só de Estação Gourmet entram como pedido de orçamento.</p>`};
 function waLink(fone,texto){let n=String(fone||'').replace(/\D/g,'');if(n.length===10||n.length===11)n='55'+n;return n.length>=12?`https://wa.me/${n}?text=${encodeURIComponent(texto)}`:''}
